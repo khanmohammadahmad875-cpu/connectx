@@ -1,0 +1,51 @@
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { api } from '../services/api';
+
+export default function ForgotPassword() {
+  const [email, setEmail] = useState('');
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState('');
+
+  async function onSubmit(e) {
+    e.preventDefault();
+    setError('');
+    try {
+      await api('/api/auth/forgot-password', { method: 'POST', body: { email } });
+      setDone(true);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    <div className="auth-shell">
+      <form className="auth-card" onSubmit={onSubmit}>
+        <div className="brand center">
+          <span className="brand-mark">CX</span>
+          <span className="brand-name">ConnectX</span>
+        </div>
+        <h1>Reset password</h1>
+        {done ? (
+          <p className="auth-sub">
+            If that email is registered, a reset link is on its way. In local development
+            (no email server configured) the link is printed on the server console.
+          </p>
+        ) : (
+          <>
+            <p className="auth-sub">Enter your account email and we will send a reset link.</p>
+            {error && <p className="form-error">{error}</p>}
+            <label>
+              Email
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </label>
+            <button className="btn primary" type="submit">Send reset link</button>
+          </>
+        )}
+        <div className="auth-links">
+          <Link to="/login">Back to login</Link>
+        </div>
+      </form>
+    </div>
+  );
+}

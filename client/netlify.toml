@@ -1,0 +1,10 @@
+# Netlify config for the ConnectX client (Option B in DEPLOYMENT.md).
+# Set VITE_API_URL in the Netlify dashboard to your deployed API URL.
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

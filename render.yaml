@@ -1,0 +1,29 @@
+# Render blueprint for ConnectX (single-service deploy: API + built client).
+# Usage: Render dashboard -> New -> Blueprint -> connect the connectx repo.
+# Fill the sync:false values in the Render dashboard (never commit secrets).
+services:
+  - type: web
+    name: connectx
+    env: node
+    plan: free
+    buildCommand: npm run setup && npm run build
+    startCommand: npm --prefix server start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: USE_MEMORY_DB
+        value: "false"
+      - key: SERVE_CLIENT
+        value: "true"
+      - key: MONGODB_URI
+        sync: false # paste your MongoDB Atlas connection string
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        sync: false # set to your https://<service>.onrender.com URL after first deploy
+      - key: PUBLIC_BASE_URL
+        sync: false # same as CLIENT_URL
+      - key: ADMIN_EMAIL
+        sync: false # optional: registering account that becomes admin
