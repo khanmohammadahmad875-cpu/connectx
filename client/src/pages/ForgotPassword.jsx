@@ -30,8 +30,8 @@ export default function ForgotPassword() {
         <h1>Reset password</h1>
         {done ? (
           <p className="auth-sub">
-            If that email is registered, a reset link is on its way. In local development
-            (no email server configured) the link is printed on the server console.
+            If that email is registered, a reset link is on its way. Please check your
+            inbox (and spam folder) — the link works for 30 minutes.
           </p>
         ) : (
           <>
