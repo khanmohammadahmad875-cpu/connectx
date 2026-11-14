@@ -9,6 +9,7 @@ import WeatherScene from '../components/WeatherScene';
 import { useLiveWeather } from '../hooks/useLiveWeather';
 import { usePrefs } from '../context/PreferencesContext';
 import WeatherWidget from '../components/WeatherWidget';
+import PrayerTimesCard from '../components/PrayerTimesCard';
 import WorldClock from '../components/WorldClock';
 import NewChatModal from '../components/chat/NewChatModal';
 import {
@@ -169,6 +170,13 @@ export default function Home() {
             </Link>
           </div>
           <WeatherWidget />
+        </TiltCard>
+
+        <TiltCard className="dash-card">
+          <div className="dash-card-head">
+            <h3>🕌 Namaz times</h3>
+          </div>
+          <PrayerTimesCard />
         </TiltCard>
 
         <TiltCard className="dash-card">

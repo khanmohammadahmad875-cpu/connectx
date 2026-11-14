@@ -619,6 +619,35 @@ export default function Profile() {
                     </button>
                   ))}
                 </div>
+                <h4 className="appearance-sub">Font style</h4>
+                <div className="seg-row" role="group" aria-label="Font style">
+                  {[
+                    { v: 'default', l: 'Default' },
+                    { v: 'classic', l: 'Classic' },
+                    { v: 'modern', l: 'Modern' },
+                    { v: 'rounded', l: 'Rounded' },
+                    { v: 'elegant', l: 'Elegant' },
+                    { v: 'mono', l: 'Mono' },
+                  ].map((o) => (
+                    <button
+                      key={o.v}
+                      type="button"
+                      className={`seg-btn ${(prefs.fontFamily || 'default') === o.v ? 'active' : ''}`}
+                      onClick={() => prefToggle('fontFamily', o.v)}
+                    >
+                      {o.l}
+                    </button>
+                  ))}
+                </div>
+                <label className="switch-row">
+                  <span>Easy Mode</span>
+                  <input
+                    type="checkbox"
+                    checked={!!prefs.easyMode}
+                    onChange={(e) => prefToggle('easyMode', e.target.checked)}
+                  />
+                </label>
+                <p className="info-sub">Big text and big buttons, everything simple and clear — easy for everyone to use, even without reading.</p>
                 <label className="switch-row">
                   <span>Animations</span>
                   <input
