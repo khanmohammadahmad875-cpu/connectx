@@ -26,6 +26,7 @@ const METHODS = [
 ];
 const FALLBACK_PLACE = { name: 'Peshawar', lat: 34.0151, lon: 71.5249 };
 const SETTINGS_KEY = 'connectx_prayer_settings_v2';
+const PLACE_KEY = 'connectx_prayer_place';
 
 const DEFAULT_SETTINGS = {
   method: 1,
@@ -115,7 +116,13 @@ function hijriLabel(data, adj) {
 export default function PrayerTimesCard() {
   const [settings, setSettings] = useState(loadSettings);
   const [place, setPlace] = useState(() => {
+    // A place the user chose (search or Current) wins and survives reloads;
+    // then the cached device location; then the Peshawar fallback.
     try {
+      const saved = JSON.parse(localStorage.getItem(PLACE_KEY) || 'null');
+      if (saved && Number.isFinite(saved.lat) && Number.isFinite(saved.lon) && saved.name) {
+        return saved;
+      }
       const geo = JSON.parse(localStorage.getItem('connectx_geo') || 'null');
       if (geo && Number.isFinite(geo.lat) && Number.isFinite(geo.lon)) {
         return { name: 'Current location', lat: geo.lat, lon: geo.lon };
@@ -139,6 +146,16 @@ export default function PrayerTimesCard() {
   dataRef.current = data;
   const placeRef = useRef(place);
   placeRef.current = place;
+
+  // Choosing a place is sticky: it is saved and restored on the next open.
+  const choosePlace = useCallback((p) => {
+    setPlace(p);
+    try {
+      localStorage.setItem(PLACE_KEY, JSON.stringify(p));
+    } catch (err) {
+      /* storage is best-effort */
+    }
+  }, []);
 
   const saveSettings = useCallback((patch) => {
     setSettings((prev) => {
@@ -221,14 +238,14 @@ export default function PrayerTimesCard() {
         } catch (err) {
           /* cache is best-effort */
         }
-        setPlace({ name: 'Current location', lat, lon });
+        choosePlace({ name: 'Current location', lat, lon });
       },
       () => {
         if (!quiet) setError('Location permission was denied — search for a city instead.');
       },
       { timeout: 10000, maximumAge: 300000 }
     );
-  }, []);
+  }, [choosePlace]);
 
   // Auto Update Location: refresh from the device each time the card opens.
   useEffect(() => {
@@ -248,7 +265,9 @@ export default function PrayerTimesCard() {
       const lat = loc.latitude ?? loc.lat;
       const lon = loc.longitude ?? loc.lon;
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) throw new Error('City not found');
-      setPlace({ name: [loc.name, loc.country].filter(Boolean).join(', ') || city, lat, lon });
+      choosePlace({ name: [loc.name, loc.country].filter(Boolean).join(', ') || city, lat, lon });
+      // A hand-picked city stays fixed until the user changes it again.
+      if (settingsRef.current.autoLoc) saveSettings({ autoLoc: false });
     } catch (err) {
       setError(err.message || 'City not found');
       setBusy(false);
