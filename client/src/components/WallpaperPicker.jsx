@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { uploadFile } from '../services/api';
-import { WALLPAPERS, wallpaperSwatchStyle } from '../utils/wallpapers';
+import { WALLPAPERS, wallpaperSwatchStyle, resolveWallpaperKey } from '../utils/wallpapers';
 
 // Wallpaper picker (module 25): built-in CSS wallpapers + a custom uploaded
 // image + a dim slider. Presentational — the parent decides what selecting
@@ -34,7 +34,7 @@ export default function WallpaperPicker({ wallpaper, customWallpaperUrl, dim, on
           <button
             key={w.key}
             type="button"
-            className={`wp-swatch ${wallpaper === w.key ? 'selected' : ''}`}
+            className={`wp-swatch ${resolveWallpaperKey(wallpaper) === w.key ? 'selected' : ''}`}
             style={wallpaperSwatchStyle(w.key, customWallpaperUrl)}
             onClick={() => {
               if (w.key === 'custom' && !customWallpaperUrl) {
