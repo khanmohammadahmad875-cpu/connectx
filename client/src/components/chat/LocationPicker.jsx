@@ -18,18 +18,27 @@ export default function LocationPicker({ onSendLocation, onStartLive, onClose })
   const [durationSec, setDurationSec] = useState(3600);
   const [label, setLabel] = useState('');
 
-  useEffect(() => {
+  function findMe() {
+    setError('');
     if (!navigator.geolocation) {
-      setError('Geolocation is not available in this browser.');
+      setError('Is browser mein location ki sahulat nahi hai.');
       return;
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setPosition({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
       },
-      () => setError('Location permission was denied or the position is unavailable.'),
-      { enableHighAccuracy: true, timeout: 12000 }
+      () =>
+        setError(
+          'Location nahi mili — phone ki Location ON karo aur app ko location ki permission do, phir dobara try karo.'
+        ),
+      { enableHighAccuracy: false, timeout: 12000 }
     );
+  }
+
+  useEffect(() => {
+    findMe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function confirm() {
@@ -56,6 +65,11 @@ export default function LocationPicker({ onSendLocation, onStartLive, onClose })
           <button className="icon-btn" onClick={onClose}>✕</button>
         </div>
         {error && <p className="form-error">{error}</p>}
+        {error && !position && (
+          <button type="button" className="btn" onClick={findMe}>
+            📍 Dobara try karo
+          </button>
+        )}
         {!position && !error && <p className="empty-note">Getting your location…</p>}
         {position && (
           <>
