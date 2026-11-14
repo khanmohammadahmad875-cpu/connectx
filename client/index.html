@@ -3,11 +3,83 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b7a55" />
     <title>ConnectX — Secure Messaging</title>
+    <style>
+      /* Boot splash: painted instantly, before the JS bundle downloads,
+         so opening the app never shows a blank white page. The React
+         LoadingScreen takes over with the same design once the app
+         mounts. Keep the two in sync. */
+      html, body { margin: 0; padding: 0; background: #eef4f1; }
+      .boot-splash {
+        min-height: 100vh; min-height: 100dvh;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 18px; padding: 24px; box-sizing: border-box;
+        background:
+          radial-gradient(420px 300px at 15% 10%, rgba(61, 220, 120, 0.16), transparent 60%),
+          radial-gradient(460px 320px at 85% 90%, rgba(254, 44, 85, 0.08), transparent 60%),
+          linear-gradient(160deg, #f6faf8 0%, #eef4f1 55%, #e7f0ec 100%);
+        font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+      }
+      .boot-word { margin: 0; font-size: 46px; font-weight: 800; letter-spacing: 0.5px; line-height: 1; }
+      .boot-letter { display: inline-block; color: #0b7a55; animation: boot-drop 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both, boot-wave 2.6s ease-in-out infinite; }
+      .boot-letter.x { background: linear-gradient(120deg, #ff8a3d, #fe2c55); -webkit-background-clip: text; background-clip: text; color: transparent; }
+      @keyframes boot-drop { from { opacity: 0; transform: translateY(-26px) scale(0.6); } to { opacity: 1; transform: translateY(0) scale(1); } }
+      @keyframes boot-wave { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+      .boot-badge {
+        position: relative; width: 92px; height: 92px; border-radius: 28px;
+        display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(145deg, #3ddc78 0%, #0e9f57 55%, #0b7a6e 100%);
+        box-shadow: 0 18px 34px rgba(11, 122, 85, 0.35), inset 0 2px 3px rgba(255,255,255,0.55), inset 0 -8px 14px rgba(0,0,0,0.18);
+        color: #fff; font-size: 38px; font-weight: 800; letter-spacing: 1px;
+        animation: boot-badge-in 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+      }
+      .boot-badge::after {
+        content: ''; position: absolute; inset: 0; border-radius: 28px;
+        background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.5) 48%, transparent 62%);
+        transform: translateX(-120%); animation: boot-shine 2.2s ease-in-out infinite;
+      }
+      @keyframes boot-badge-in { from { opacity: 0; transform: scale(0.5) rotate(-8deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+      @keyframes boot-shine { 0% { transform: translateX(-120%); } 55%, 100% { transform: translateX(120%); } }
+      .boot-ring {
+        position: absolute; inset: -8px; border-radius: 34px;
+        border: 2px solid rgba(14, 159, 87, 0.45);
+        animation: boot-ring 1.8s ease-out infinite;
+      }
+      .boot-ring.late { animation-delay: 0.9s; }
+      @keyframes boot-ring { from { opacity: 0.9; transform: scale(0.94); } to { opacity: 0; transform: scale(1.22); } }
+      .boot-by { margin: 0; font-size: 14.5px; color: #46635a; }
+      .boot-ahmad {
+        font-weight: 800; letter-spacing: 2.5px;
+        background: linear-gradient(90deg, #f59e0b, #fe2c55);
+        -webkit-background-clip: text; background-clip: text; color: transparent;
+      }
+      .boot-bar { width: 190px; height: 6px; border-radius: 99px; background: #d9e6df; overflow: hidden; }
+      .boot-bar i {
+        display: block; height: 100%; width: 40%; border-radius: 99px;
+        background: linear-gradient(90deg, #3ddc78, #0e9f57, #25c3ee);
+        animation: boot-slide 1.15s ease-in-out infinite;
+      }
+      @keyframes boot-slide { 0% { transform: translateX(-110%); } 100% { transform: translateX(280%); } }
+      .boot-dots { display: flex; gap: 7px; }
+      .boot-dots i { width: 8px; height: 8px; border-radius: 50%; background: #0e9f57; animation: boot-bounce 1s ease-in-out infinite; }
+      .boot-dots i:nth-child(2) { animation-delay: 0.15s; background: #25c3ee; }
+      .boot-dots i:nth-child(3) { animation-delay: 0.3s; background: #fe2c55; }
+      @keyframes boot-bounce { 0%, 100% { transform: translateY(0); opacity: 0.55; } 50% { transform: translateY(-7px); opacity: 1; } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot-splash" role="status" aria-label="Loading ConnectX">
+        <h1 class="boot-word" aria-label="ConnectX"><span class="boot-letter" style="animation-delay:0s,0s">C</span><span class="boot-letter" style="animation-delay:.08s,.08s">o</span><span class="boot-letter" style="animation-delay:.16s,.16s">n</span><span class="boot-letter" style="animation-delay:.24s,.24s">n</span><span class="boot-letter" style="animation-delay:.32s,.32s">e</span><span class="boot-letter" style="animation-delay:.40s,.40s">c</span><span class="boot-letter" style="animation-delay:.48s,.48s">t</span><span class="boot-letter x" style="animation-delay:.56s,.56s">X</span></h1>
+        <div class="boot-badge"><span>CX</span><i class="boot-ring"></i><i class="boot-ring late"></i></div>
+        <p class="boot-by">by Developer Mohammad <b class="boot-ahmad">AHMAD</b> Khan</p>
+        <div class="boot-bar"><i></i></div>
+        <div class="boot-dots"><i></i><i></i><i></i></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
