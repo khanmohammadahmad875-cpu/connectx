@@ -4,6 +4,12 @@ ConnectX is a secure, scalable messaging application: private and group chats,
 instant delivery with Socket.IO, online presence, read receipts, media sharing
 and an admin moderation panel — built milestone by milestone.
 
+## Live Demo
+
+**Try ConnectX live:** https://connectx-production-cd3ef1ec.up.railway.app
+
+Deployed on Railway (trial) with MongoDB Atlas. Register an account to start chatting in real time.
+
 **Status: COMPLETE — all milestones implemented and verified.**
 The full application (auth, profiles, private + group messaging, real-time
 Socket.IO delivery, presence, typing, receipts, media uploads, notifications,
