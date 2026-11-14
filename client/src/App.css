@@ -3486,6 +3486,30 @@ a.mini-btn { text-decoration: none; display: inline-flex; align-items: center; }
   backdrop-filter: blur(6px);
 }
 .cam-flip.ghost-slot { background: transparent; backdrop-filter: none; cursor: default; }
+.cam-flash { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; line-height: 1.05; }
+.cam-flash .cam-flash-state { font-size: 9.5px; font-weight: 700; letter-spacing: 0.4px; }
+.cam-flash.on { background: linear-gradient(140deg, #ffd54d, #ffb300); color: #4a2f00; box-shadow: 0 0 18px rgba(255, 190, 40, 0.75); }
+.cam-note {
+  position: absolute; top: 60px; left: 50%; transform: translateX(-50%); z-index: 2;
+  background: rgba(20, 26, 24, 0.88); color: #fff; padding: 8px 14px;
+  border-radius: 10px; font-size: 13px; max-width: 86%; text-align: center; margin: 0;
+}
+
+/* --- Call flash light: real torch on the back camera; on the front
+   camera a bright screen glow (phones have no front flash LED). --- */
+.call-screenlight {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(255, 246, 205, 0.22) 40%, rgba(255, 240, 185, 0.6) 100%);
+  box-shadow: inset 0 0 110px 55px rgba(255, 238, 175, 0.85);
+}
+.call-card .call-head, .call-card .call-actions { position: relative; z-index: 2; }
+.call-flash-btn { flex-direction: column; gap: 0; line-height: 1.05; font-size: 19px; }
+.call-flash-btn .flash-state { font-size: 9px; font-weight: 700; letter-spacing: 0.4px; }
+.call-flash-btn.on {
+  background: linear-gradient(140deg, #ffd54d, #ffb300) !important;
+  color: #4a2f00 !important;
+  box-shadow: 0 0 18px rgba(255, 190, 40, 0.8);
+}
 .cam-shutter {
   width: 68px; height: 68px; border-radius: 50%; cursor: pointer;
   background: #fff; border: 5px solid rgba(255,255,255,0.45);
