@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, uploadFile } from '../../services/api';
+import ImageCropper from '../ImageCropper';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const VIS_OPTIONS = [
@@ -22,6 +23,7 @@ export default function BusinessEditor() {
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [cropFile, setCropFile] = useState(null);
   const logoRef = useRef(null);
   const coverRef = useRef(null);
   const productImgRef = useRef(null);
@@ -159,7 +161,7 @@ export default function BusinessEditor() {
                 <button type="button" className="btn small ghost" onClick={() => logoRef.current?.click()}>
                   Upload logo
                 </button>
-                <input ref={logoRef} type="file" hidden accept="image/*" onChange={(e) => { uploadInto('logo', e.target.files?.[0]); e.target.value = ''; }} />
+                <input ref={logoRef} type="file" hidden accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f && f.type.startsWith('image/')) setCropFile(f); else uploadInto('logo', f); }} />
               </div>
               <div>
                 <span className="info-sub">Cover</span>
@@ -332,6 +334,16 @@ export default function BusinessEditor() {
             <button className="btn small primary" type="submit">Add product</button>
           </form>
         </div>
+      )}
+      {cropFile && (
+        <ImageCropper
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onDone={(cropped) => {
+            setCropFile(null);
+            uploadInto('logo', cropped);
+          }}
+        />
       )}
     </div>
   );
