@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../services/api';
+import { resolveCityName, storedCityName } from '../utils/geo';
 
 // Namaz (prayer) times in the classic Azan-app style: mint cards, the
 // next prayer lit up solid green, a settings block underneath — Change
@@ -125,7 +126,7 @@ export default function PrayerTimesCard() {
       }
       const geo = JSON.parse(localStorage.getItem('connectx_geo') || 'null');
       if (geo && Number.isFinite(geo.lat) && Number.isFinite(geo.lon)) {
-        return { name: 'Current location', lat: geo.lat, lon: geo.lon };
+        return { name: storedCityName(geo.lat, geo.lon) || 'Current location', lat: geo.lat, lon: geo.lon };
       }
     } catch (err) {
       /* fall through */
@@ -190,6 +191,20 @@ export default function PrayerTimesCard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [place.lat, place.lon, settings.method, settings.school]);
 
+  // A GPS place starts life labelled "Current location"; replace that
+  // generic label with the real city name as soon as it resolves, so the
+  // card always says whose Namaz times these are.
+  useEffect(() => {
+    if (place.name !== 'Current location') return undefined;
+    let cancelled = false;
+    resolveCityName(place.lat, place.lon).then((name) => {
+      if (!cancelled && name) choosePlace({ name, lat: place.lat, lon: place.lon });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [place.name, place.lat, place.lon, choosePlace]);
+
   // Tick every second for the countdown; check reminders every tick too
   // (cheap, and the fired-set keeps each alert one-shot per day).
   useEffect(() => {
@@ -240,7 +255,10 @@ export default function PrayerTimesCard() {
           /* cache is best-effort */
         }
         setNote('');
-        choosePlace({ name: 'Current location', lat, lon });
+        choosePlace({ name: storedCityName(lat, lon) || 'Current location', lat, lon });
+        resolveCityName(lat, lon).then((name) => {
+          if (name) choosePlace({ name, lat, lon });
+        });
       },
       () => {
         // NOT an app error: the phone's Location is off or the permission

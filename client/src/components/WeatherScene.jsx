@@ -189,8 +189,9 @@ export default function WeatherScene({ scene, night = false, className = '' }) {
           ctx.fill();
         }
         ctx.globalAlpha = 1;
-        // moon (dimmed by cloud cover, like the real thing)
-        const moonStrength = 1 - cover * 0.65;
+        // moon (dimmed by cloud cover, like the real thing — under
+        // heavy weather it should be a soft glow, not a hard white disc)
+        const moonStrength = 1 - cover * 0.8;
         const mx = W * 0.78;
         const my = H * 0.18;
         const mg = ctx.createRadialGradient(mx, my, 4, mx, my, 60);
@@ -202,7 +203,7 @@ export default function WeatherScene({ scene, night = false, className = '' }) {
         ctx.globalAlpha = moonStrength;
         ctx.fillStyle = '#e9eefb';
         ctx.beginPath();
-        ctx.arc(mx, my, 17, 0, Math.PI * 2);
+        ctx.arc(mx, my, 17 * (1 - cover * 0.3), 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = 'rgba(190,202,228,0.5)';
         ctx.beginPath();

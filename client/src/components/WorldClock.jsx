@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { usePrefs } from '../context/PreferencesContext';
 import { TIMEZONES, dateInZone, localTimeZone, timeInZone, zoneLabel } from '../utils/timezones';
+import { storedGeoName } from '../utils/geo';
 
 // World clock (module 27): local time + the user's saved cities. Everything
 // is computed locally with Intl; saved cities and the 12/24h choice persist
@@ -45,7 +46,7 @@ export default function WorldClock({ editable = false }) {
     <div className="world-clock">
       <div className="wc-row wc-local">
         <span className="wc-place">
-          <span className="wc-name">Local time</span>
+          <span className="wc-name">{storedGeoName() ? `📍 ${storedGeoName()}` : 'Local time'}</span>
           <span className="wc-zone">{zoneLabel(myZone)}</span>
         </span>
         <span className="wc-time">
