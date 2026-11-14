@@ -161,7 +161,7 @@ export default function BusinessEditor() {
                 <button type="button" className="btn small ghost" onClick={() => logoRef.current?.click()}>
                   Upload logo
                 </button>
-                <input ref={logoRef} type="file" hidden accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f && f.type.startsWith('image/')) setCropFile(f); else uploadInto('logo', f); }} />
+                <input ref={logoRef} type="file" hidden accept="image/*" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f && (!f.type || f.type.startsWith('image/'))) setCropFile(f); else uploadInto('logo', f); }} />
               </div>
               <div>
                 <span className="info-sub">Cover</span>
