@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PreferencesProvider } from './context/PreferencesContext';
@@ -7,24 +8,25 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Chat from './pages/Chat';
 import Home from './pages/Home';
-import Reels from './pages/Reels';
-import Weather from './pages/Weather';
-import Business from './pages/Business';
-import Calendar from './pages/Calendar';
-import Documents from './pages/Documents';
-import Security from './pages/Security';
-import Profile from './pages/Profile';
-import Admin from './pages/Admin';
+
+// Heavier pages load on demand (code splitting): the first paint only
+// downloads the shell + login + chat/home, so the app opens noticeably
+// faster on mobile data. The Suspense fallback is the branded splash.
+const Reels = lazy(() => import('./pages/Reels'));
+const Weather = lazy(() => import('./pages/Weather'));
+const Business = lazy(() => import('./pages/Business'));
+const Calendar = lazy(() => import('./pages/Calendar'));
+const Documents = lazy(() => import('./pages/Documents'));
+const Security = lazy(() => import('./pages/Security'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Admin = lazy(() => import('./pages/Admin'));
+import LoadingScreen from './components/LoadingScreen';
 import './App.css';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) {
-    return (
-      <div className="auth-shell">
-        <p className="auth-sub">Loading ConnectX…</p>
-      </div>
-    );
+    return <LoadingScreen />;
   }
   if (!user) return <Navigate to="/login" replace />;
   return children;
@@ -32,7 +34,7 @@ function ProtectedRoute({ children }) {
 
 function GuestRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return null;
+  if (loading) return <LoadingScreen />;
   if (user) return <Navigate to="/home" replace />;
   return children;
 }
@@ -42,7 +44,8 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <PreferencesProvider>
-          <Routes>
+          <Suspense fallback={<LoadingScreen />}>
+            <Routes>
             <Route
               path="/login"
               element={
@@ -149,8 +152,9 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </PreferencesProvider>
       </AuthProvider>
     </BrowserRouter>

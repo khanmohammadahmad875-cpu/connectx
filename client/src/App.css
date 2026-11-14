@@ -3384,3 +3384,223 @@ a.mini-btn { text-decoration: none; display: inline-flex; align-items: center; }
   backdrop-filter: blur(14px) saturate(1.4);
   -webkit-backdrop-filter: blur(14px) saturate(1.4);
 }
+
+/* --- Branded splash / loading screen (mirrors the index.html boot
+       splash; keep the two in sync) --- */
+.splash {
+  min-height: 100vh; min-height: 100dvh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 18px; padding: 24px; box-sizing: border-box;
+  background:
+    radial-gradient(420px 300px at 15% 10%, rgba(61, 220, 120, 0.16), transparent 60%),
+    radial-gradient(460px 320px at 85% 90%, rgba(254, 44, 85, 0.08), transparent 60%),
+    linear-gradient(160deg, #f6faf8 0%, #eef4f1 55%, #e7f0ec 100%);
+  font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+}
+.splash-word { margin: 0; font-size: 46px; font-weight: 800; letter-spacing: 0.5px; line-height: 1; }
+.splash-letter {
+  display: inline-block; color: #0b7a55;
+  animation: splash-drop 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both, splash-wave 2.6s ease-in-out infinite;
+}
+.splash-letter.l7 {
+  background: linear-gradient(120deg, #ff8a3d, #fe2c55);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+@keyframes splash-drop { from { opacity: 0; transform: translateY(-26px) scale(0.6); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes splash-wave { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+.splash-badge {
+  position: relative; width: 92px; height: 92px; border-radius: 28px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(145deg, #3ddc78 0%, #0e9f57 55%, #0b7a6e 100%);
+  box-shadow: 0 18px 34px rgba(11, 122, 85, 0.35), inset 0 2px 3px rgba(255,255,255,0.55), inset 0 -8px 14px rgba(0,0,0,0.18);
+  color: #fff; font-size: 38px; font-weight: 800; letter-spacing: 1px;
+  animation: splash-badge-in 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+.splash-badge::after {
+  content: ''; position: absolute; inset: 0; border-radius: 28px;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.5) 48%, transparent 62%);
+  transform: translateX(-120%); animation: splash-shine 2.2s ease-in-out infinite;
+}
+@keyframes splash-badge-in { from { opacity: 0; transform: scale(0.5) rotate(-8deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+@keyframes splash-shine { 0% { transform: translateX(-120%); } 55%, 100% { transform: translateX(120%); } }
+.splash-ring {
+  position: absolute; inset: -8px; border-radius: 34px;
+  border: 2px solid rgba(14, 159, 87, 0.45);
+  animation: splash-ring 1.8s ease-out infinite;
+}
+.splash-ring.late { animation-delay: 0.9s; }
+@keyframes splash-ring { from { opacity: 0.9; transform: scale(0.94); } to { opacity: 0; transform: scale(1.22); } }
+.splash-by { margin: 0; font-size: 14.5px; color: #46635a; }
+.splash-ahmad {
+  font-weight: 800; letter-spacing: 2.5px;
+  background: linear-gradient(90deg, #f59e0b, #fe2c55);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.splash-bar { width: 190px; height: 6px; border-radius: 99px; background: #d9e6df; overflow: hidden; }
+.splash-bar i {
+  display: block; height: 100%; width: 40%; border-radius: 99px;
+  background: linear-gradient(90deg, #3ddc78, #0e9f57, #25c3ee);
+  animation: splash-slide 1.15s ease-in-out infinite;
+}
+@keyframes splash-slide { 0% { transform: translateX(-110%); } 100% { transform: translateX(280%); } }
+.splash-dots { display: flex; gap: 7px; }
+.splash-dots i { width: 8px; height: 8px; border-radius: 50%; background: #0e9f57; animation: splash-bounce 1s ease-in-out infinite; }
+.splash-dots i:nth-child(2) { animation-delay: 0.15s; background: #25c3ee; }
+.splash-dots i:nth-child(3) { animation-delay: 0.3s; background: #fe2c55; }
+@keyframes splash-bounce { 0%, 100% { transform: translateY(0); opacity: 0.55; } 50% { transform: translateY(-7px); opacity: 1; } }
+
+/* --- In-chat camera (WhatsApp-style viewfinder) --- */
+.cam-overlay {
+  position: fixed; inset: 0; z-index: 120;
+  background: rgba(4, 12, 9, 0.92);
+  display: flex; align-items: center; justify-content: center;
+}
+.cam-stage { position: relative; width: 100%; height: 100%; max-width: 560px; max-height: 92dvh; background: #000; overflow: hidden; }
+@media (min-width: 640px) { .cam-stage { border-radius: 18px; } }
+.cam-video, .cam-preview-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cam-video.mirror { transform: scaleX(-1); }
+.cam-close {
+  position: absolute; top: 12px; right: 12px; z-index: 2;
+  width: 38px; height: 38px; border-radius: 50%; border: none;
+  background: rgba(0,0,0,0.55); color: #fff; font-size: 16px; cursor: pointer;
+}
+.cam-hint {
+  position: absolute; top: 14px; left: 14px; margin: 0;
+  background: rgba(0,0,0,0.5); color: #fff; font-size: 12.5px;
+  padding: 5px 10px; border-radius: 99px;
+}
+.cam-error {
+  position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+  background: rgba(120, 10, 30, 0.85); color: #fff; padding: 8px 14px;
+  border-radius: 10px; font-size: 13px; max-width: 86%; text-align: center;
+}
+.cam-actions {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 22px calc(18px + env(safe-area-inset-bottom));
+  background: linear-gradient(transparent, rgba(0,0,0,0.55));
+}
+.cam-flip {
+  width: 50px; height: 50px; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(255,255,255,0.18); color: #fff; font-size: 21px;
+  backdrop-filter: blur(6px);
+}
+.cam-flip.ghost-slot { background: transparent; backdrop-filter: none; cursor: default; }
+.cam-shutter {
+  width: 68px; height: 68px; border-radius: 50%; cursor: pointer;
+  background: #fff; border: 5px solid rgba(255,255,255,0.45);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+}
+.cam-shutter:active { transform: scale(0.93); }
+.cam-btn {
+  border: none; cursor: pointer; border-radius: 99px;
+  padding: 12px 22px; font-size: 15px; font-weight: 600;
+}
+.cam-btn.ghost { background: rgba(255,255,255,0.18); color: #fff; }
+.cam-btn.send { background: linear-gradient(120deg, #3ddc78, #0e9f57); color: #fff; }
+.cam-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* --- Namaz / prayer times card --- */
+.prayer-search { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.prayer-search input {
+  flex: 1 1 150px; min-width: 0;
+  padding: 8px 12px; border-radius: 99px;
+  border: 1px solid var(--border, #d5e0da);
+  background: var(--panel, #fff); color: inherit; font-size: 13.5px;
+}
+.prayer-place { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-weight: 700; }
+.prayer-next {
+  margin: 8px 0; padding: 8px 12px; border-radius: 12px;
+  background: linear-gradient(120deg, rgba(61,220,120,0.18), rgba(37,195,238,0.14));
+  font-size: 14px;
+}
+.prayer-list { list-style: none; margin: 6px 0; padding: 0; }
+.prayer-list li {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 7px 10px; border-radius: 10px; font-size: 14.5px;
+}
+.prayer-list li:nth-child(odd) { background: rgba(127, 160, 145, 0.08); }
+.prayer-list li.next {
+  background: linear-gradient(120deg, rgba(61,220,120,0.25), rgba(14,159,87,0.18));
+  font-weight: 700; outline: 1px solid rgba(14,159,87,0.4);
+}
+.prayer-error { color: #c2274b; font-size: 13px; margin: 6px 0; }
+.prayer-method { margin-top: 6px; }
+
+/* --- Font style preference + soft, gentle motion everywhere --- */
+body { font-family: var(--app-font, 'Segoe UI', system-ui, -apple-system, Arial, sans-serif); }
+html { scroll-behavior: smooth; }
+button, .btn, .icon-btn, .seg-btn, .mini-btn, input, select, textarea, a {
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+button:active, .btn:active, .icon-btn:active { transform: scale(0.96); }
+
+/* --- Easy Mode: big text, big buttons, clear surfaces --- */
+html[data-easy='on'] body { font-size: 17.5px; }
+html[data-easy='on'] .icon-btn { min-width: 48px; min-height: 48px; font-size: 21px; }
+html[data-easy='on'] .btn { padding: 13px 22px; font-size: 16.5px; border-radius: 14px; }
+html[data-easy='on'] .nav3d-label { font-size: 12.5px; font-weight: 700; }
+html[data-easy='on'] .nav3d-icon { font-size: 25px; }
+html[data-easy='on'] .conv-item { padding-top: 15px; padding-bottom: 15px; }
+html[data-easy='on'] input, html[data-easy='on'] select, html[data-easy='on'] textarea { font-size: 16.5px; }
+html[data-easy='on'] .seg-btn { padding: 11px 16px; font-size: 15.5px; }
+html[data-easy='on'] .call-btn { width: 64px; height: 64px; font-size: 24px; }
+
+/* --- Namaz / Azan card (classic Azan-app style) --- */
+.azan-search { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.azan-search input {
+  flex: 1 1 150px; min-width: 0;
+  padding: 8px 12px; border-radius: 99px;
+  border: 1px solid var(--border, #d5e0da);
+  background: var(--panel, #fff); color: inherit; font-size: 13.5px;
+}
+.azan-place { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-weight: 700; }
+.azan-next {
+  margin: 8px 0; padding: 8px 12px; border-radius: 12px;
+  background: linear-gradient(120deg, rgba(61,220,120,0.18), rgba(37,195,238,0.14));
+  font-size: 14px;
+}
+.azan-list { list-style: none; margin: 8px 0 4px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.azan-list li {
+  background: #e9f5f1; border-radius: 14px; padding: 10px 14px;
+  box-shadow: 0 1px 3px rgba(9, 60, 44, 0.06);
+}
+.azan-list li.active {
+  background: linear-gradient(120deg, #0aa06e, #0b8a5f);
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(10, 140, 95, 0.32);
+}
+.azan-row { display: flex; align-items: center; gap: 12px; }
+.azan-ic { font-size: 21px; width: 28px; text-align: center; }
+.azan-name { font-size: 16.5px; font-weight: 600; flex: 1; }
+.azan-time { font-size: 15.5px; opacity: 0.85; font-variant-numeric: tabular-nums; }
+.azan-list li.active .azan-time { opacity: 1; font-weight: 700; }
+.azan-gear {
+  border: none; background: transparent; cursor: pointer;
+  font-size: 17px; padding: 4px; line-height: 1;
+}
+.azan-gearpanel {
+  margin-top: 10px; padding: 10px 12px; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.65);
+  display: flex; flex-direction: column; gap: 8px; color: #17352b;
+}
+.azan-list li.active .azan-gearpanel { background: rgba(255, 255, 255, 0.92); }
+.azan-lead { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+.azan-lead select, .azan-setrow select {
+  padding: 6px 8px; border-radius: 8px; border: 1px solid #cfe0d8;
+  background: #fff; color: #0b7a55; font-weight: 700; font-size: 13.5px;
+}
+.azan-sec { margin: 16px 0 8px; font-size: 16px; }
+.azan-cards { display: flex; flex-direction: column; gap: 8px; }
+.azan-setrow {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  background: #e9f5f1; border: none; border-radius: 14px;
+  padding: 12px 14px; font-size: 15px; color: inherit;
+  cursor: pointer; text-align: left; box-shadow: 0 1px 3px rgba(9, 60, 44, 0.06);
+}
+label.azan-setrow { cursor: default; }
+.azan-set-ic { font-size: 19px; width: 26px; text-align: center; }
+.azan-set-main { flex: 1; display: flex; flex-direction: column; }
+.azan-set-main small { opacity: 0.6; font-size: 12.5px; }
+.azan-chev { font-size: 20px; opacity: 0.45; }
+.azan-note { margin-top: 10px; }
