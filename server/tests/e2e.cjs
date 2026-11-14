@@ -612,6 +612,37 @@ async function main() {
     check('preferences: per-conversation wallpaper persists',
       prefWp.status === 200 && !!wpEntry && wpEntry.wallpaper === 'sunset' && wpEntry.dim === 30);
 
+    // --- Polish phase: theme + live-weather preferences -------------------
+    check('preferences: theme defaults to light and live-weather background defaults on',
+      prefLoad.data.preferences.theme === 'light' &&
+        prefLoad.data.preferences.liveWeatherBackground === true);
+    const themeSave = await req('PATCH', '/api/users/me/preferences', {
+      token: A.token,
+      body: { theme: 'dark', liveWeatherBackground: false },
+    });
+    const themeReload = await req('GET', '/api/users/me/preferences', { token: A.token });
+    check('preferences: theme + live-weather background save and reload',
+      themeSave.status === 200 &&
+        themeSave.data.preferences.theme === 'dark' &&
+        themeSave.data.preferences.liveWeatherBackground === false &&
+        themeReload.data.preferences.theme === 'dark');
+    const themeBad = await req('PATCH', '/api/users/me/preferences', {
+      token: A.token,
+      body: { theme: 'neon' },
+    });
+    check('preferences: invalid theme value is rejected (400)', themeBad.status === 400);
+    const wpLive = await req('PATCH', '/api/users/me/preferences', {
+      token: A.token,
+      body: { wallpaper: 'live-weather' },
+    });
+    check("preferences: 'live-weather' wallpaper key persists",
+      wpLive.status === 200 && wpLive.data.preferences.wallpaper === 'live-weather');
+    // Restore the choices later sections do not depend on, to be safe.
+    await req('PATCH', '/api/users/me/preferences', {
+      token: A.token,
+      body: { theme: 'light', liveWeatherBackground: true, wallpaper: 'ocean' },
+    });
+
     // --- v3.0 Phase A: contact cards ------------------------------------
     const regD = await req('POST', '/api/auth/register', {
       body: { username: 'dave', email: 'dave@test.dev', password: 'Password1!' },
@@ -824,6 +855,232 @@ async function main() {
     check('archive: unarchive returns the chat to the main list',
       unarchRes.status === 200 &&
         (bMainAfterUnarch.data.conversations || []).some((c) => c._id === convId));
+
+    // --- Polish phase: pinned chats ----------------------------------------
+    const pinRes = await req('POST', `/api/conversations/${convId}/pin`, { token: B.token });
+    check('pin: endpoint pins for the pinning user', pinRes.status === 200 && pinRes.data.pinned === true);
+    const bListPinned = await req('GET', '/api/conversations', { token: B.token });
+    const bPinnedList = bListPinned.data.conversations || [];
+    check('pin: pinned conversation is flagged and sorts first in the list',
+      bPinnedList.length > 0 &&
+        bPinnedList[0]._id === convId &&
+        bPinnedList[0].pinned === true);
+    const aListPin = await req('GET', '/api/conversations', { token: A.token });
+    const aEntryPin = (aListPin.data.conversations || []).find((c) => c._id === convId);
+    check('pin: pin state is per-user (the other participant is unaffected)',
+      !!aEntryPin && aEntryPin.pinned === false);
+    const unpinRes = await req('POST', `/api/conversations/${convId}/unpin`, { token: B.token });
+    const bListUnpinned = await req('GET', '/api/conversations', { token: B.token });
+    const bEntryUnpinned = (bListUnpinned.data.conversations || []).find((c) => c._id === convId);
+    check('pin: unpin clears the flag',
+      unpinRes.status === 200 && unpinRes.data.pinned === false &&
+        !!bEntryUnpinned && bEntryUnpinned.pinned === false);
+    const cPinRes = await req('POST', `/api/conversations/${convId}/pin`, { token: C.token });
+    check('pin: a non-member cannot pin the conversation (403)', cPinRes.status === 403);
+
+    // --- Polish phase: video messages --------------------------------------
+    const videoForm = new FormData();
+    videoForm.append(
+      'file',
+      new Blob([Buffer.from('fake-video-bytes')], { type: 'video/mp4' }),
+      'clip.mp4'
+    );
+    const videoUpRes = await fetch(`${BASE}/api/uploads`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${A.token}` },
+      body: videoForm,
+    });
+    const videoUpData = await videoUpRes.json().catch(() => ({}));
+    check('video: mp4 upload accepted and classified as video',
+      videoUpRes.status === 201 && videoUpData.messageType === 'video' && !!videoUpData.url);
+    const videoMsg = await req('POST', '/api/messages', {
+      token: A.token,
+      body: {
+        conversationId: convId,
+        messageType: 'video',
+        attachmentUrl: videoUpData.url,
+        clientMessageId: 'test-video-1',
+        videoMeta: { duration: 12.5, size: 16, mime: 'video/mp4' },
+      },
+    });
+    check('video: message is created with type video',
+      videoMsg.status === 201 && videoMsg.data.message.messageType === 'video');
+    check('video: duration + size + mime metadata are stored',
+      Math.abs((videoMsg.data.message.videoMeta?.duration || 0) - 12.5) < 0.001 &&
+        videoMsg.data.message.videoMeta?.size === 16 &&
+        videoMsg.data.message.videoMeta?.mime === 'video/mp4');
+    const bHistVideo = await req('GET', `/api/messages/${convId}?limit=50`, { token: B.token });
+    const bVideoMsg = (bHistVideo.data.messages || []).find((m) => m._id === videoMsg.data.message._id);
+    check('video: recipient history shows the video message with its metadata',
+      !!bVideoMsg && bVideoMsg.messageType === 'video' && bVideoMsg.videoMeta?.mime === 'video/mp4');
+    const videoNoFile = await req('POST', '/api/messages', {
+      token: A.token,
+      body: { conversationId: convId, messageType: 'video', attachmentUrl: '' },
+    });
+    check('video: a video message without an uploaded file is rejected (400)',
+      videoNoFile.status === 400);
+    const forgedSystem = await req('POST', '/api/messages', {
+      token: A.token,
+      body: { conversationId: convId, messageType: 'system', content: 'forged notice' },
+    });
+    check('video/system: clients cannot forge system messages (400)', forgedSystem.status === 400);
+
+    // --- Polish phase: video status -----------------------------------------
+    const videoStatus = await req('POST', '/api/status', {
+      token: A.token,
+      body: { type: 'video', mediaUrl: videoUpData.url },
+    });
+    check('status video: creation succeeds with type video',
+      videoStatus.status === 201 && videoStatus.data.status.type === 'video' &&
+        videoStatus.data.status.mediaUrl === videoUpData.url);
+    const bFeedVideo = await req('GET', '/api/status/feed', { token: B.token });
+    const bGroupVideo = (bFeedVideo.data.groups || []).find(
+      (g) => (g.user?._id || g.user) === A.id &&
+        (g.statuses || []).some((s) => s._id === videoStatus.data.status._id && s.type === 'video')
+    );
+    check('status video: the feed carries it to contacts as a video', !!bGroupVideo);
+    const videoView = await req('POST', `/api/status/${videoStatus.data.status._id}/view`, {
+      token: B.token,
+    });
+    const aFeedAfterView = await req('GET', '/api/status/feed', { token: A.token });
+    const aMineGroup = (aFeedAfterView.data.groups || []).find((g) => g.mine);
+    const aVideoStatus = (aMineGroup?.statuses || []).find((s) => s._id === videoStatus.data.status._id);
+    check('status video: a view is recorded for the author',
+      videoView.status === 200 && !!aVideoStatus && aVideoStatus.viewersCount >= 1);
+    const videoStatusNoUrl = await req('POST', '/api/status', {
+      token: A.token,
+      body: { type: 'video' },
+    });
+    check('status video: a video status without media is rejected (400)',
+      videoStatusNoUrl.status === 400);
+
+    // --- Polish phase: disappearing messages ---------------------------------
+    const dmSet = await req('PATCH', `/api/conversations/${convId}`, {
+      token: B.token,
+      body: { disappearingDurationSec: 2 },
+    });
+    check('disappearing: a private-chat member can turn the timer on',
+      dmSet.status === 200 && dmSet.data.conversation.disappearingDurationSec === 2);
+    const histNotice = await req('GET', `/api/messages/${convId}?limit=50`, { token: A.token });
+    check('disappearing: a system notice appears in the chat',
+      (histNotice.data.messages || []).some(
+        (m) => m.messageType === 'system' && /disappearing/i.test(m.content || '')
+      ));
+    const dmMsg = await req('POST', '/api/messages', {
+      token: A.token,
+      body: { conversationId: convId, content: 'short lived secret', clientMessageId: 'test-dm-1' },
+    });
+    check('disappearing: new messages get an expiry while the timer is on',
+      dmMsg.status === 201 && !!dmMsg.data.message.expiresAt);
+    const bHistDm = await req('GET', `/api/messages/${convId}?limit=50`, { token: B.token });
+    check('disappearing: the message is visible to both users before expiry',
+      (bHistDm.data.messages || []).some((m) => m._id === dmMsg.data.message._id));
+    await new Promise((r) => setTimeout(r, 2400));
+    const aHistAfter = await req('GET', `/api/messages/${convId}?limit=50`, { token: A.token });
+    const bHistAfter = await req('GET', `/api/messages/${convId}?limit=50`, { token: B.token });
+    check('disappearing: after expiry the message is gone from history for both users',
+      !(aHistAfter.data.messages || []).some((m) => m._id === dmMsg.data.message._id) &&
+        !(bHistAfter.data.messages || []).some((m) => m._id === dmMsg.data.message._id));
+    await req('PATCH', `/api/conversations/${convId}`, {
+      token: B.token,
+      body: { disappearingDurationSec: 86400 },
+    });
+    const dmDay = await req('POST', '/api/messages', {
+      token: A.token,
+      body: { conversationId: convId, content: 'day long secret', clientMessageId: 'test-dm-2' },
+    });
+    const dmTtlMs = new Date(dmDay.data.message.expiresAt) - Date.now();
+    check('disappearing: the 24-hour option stamps an expiry ~24h out',
+      dmDay.status === 201 && dmTtlMs > 23 * 3600e3 && dmTtlMs < 25 * 3600e3);
+    const dmOff = await req('PATCH', `/api/conversations/${convId}`, {
+      token: B.token,
+      body: { disappearingDurationSec: 0 },
+    });
+    const dmPlain = await req('POST', '/api/messages', {
+      token: A.token,
+      body: { conversationId: convId, content: 'permanent again', clientMessageId: 'test-dm-3' },
+    });
+    check('disappearing: with the timer off, messages carry no expiry again',
+      dmOff.status === 200 && dmPlain.status === 201 && !dmPlain.data.message.expiresAt);
+
+    // Group permission + the Settings → Privacy default timer.
+    await req('PATCH', '/api/users/me/preferences', {
+      token: B.token,
+      body: { defaultDisappearingDuration: 86400 },
+    });
+    const timerGroup = await req('POST', '/api/conversations', {
+      token: B.token,
+      body: { type: 'group', groupName: 'Timer Group', memberIds: [A.id] },
+    });
+    check("disappearing: the creator's default timer applies to new conversations",
+      timerGroup.status === 201 &&
+        timerGroup.data.conversation.disappearingDurationSec === 86400);
+    const aGroupDm = await req('PATCH', `/api/conversations/${timerGroup.data.conversation._id}`, {
+      token: A.token,
+      body: { disappearingDurationSec: 0 },
+    });
+    check('disappearing: a non-admin group member cannot change the timer (403)',
+      aGroupDm.status === 403);
+    const bGroupDm = await req('PATCH', `/api/conversations/${timerGroup.data.conversation._id}`, {
+      token: B.token,
+      body: { disappearingDurationSec: 604800 },
+    });
+    check('disappearing: a group admin can change the timer',
+      bGroupDm.status === 200 &&
+        bGroupDm.data.conversation.disappearingDurationSec === 604800);
+    await req('PATCH', '/api/users/me/preferences', {
+      token: B.token,
+      body: { defaultDisappearingDuration: 0 },
+    });
+
+    // --- Polish phase: settings preferences (accessibility + notifications) --
+    const accSave = await req('PATCH', '/api/users/me/preferences', {
+      token: A.token,
+      body: { fontSize: 'large', animationsEnabled: false, soundAlerts: false },
+    });
+    check('settings prefs: font size + animations + sound alerts save',
+      accSave.status === 200 &&
+        accSave.data.preferences.fontSize === 'large' &&
+        accSave.data.preferences.animationsEnabled === false &&
+        accSave.data.preferences.soundAlerts === false);
+    const fontBad = await req('PATCH', '/api/users/me/preferences', {
+      token: A.token,
+      body: { fontSize: 'huge' },
+    });
+    check('settings prefs: an invalid font size is rejected (400)', fontBad.status === 400);
+    await req('PATCH', '/api/users/me/preferences', {
+      token: A.token,
+      body: { fontSize: 'medium', animationsEnabled: true, soundAlerts: true },
+    });
+    await req('PATCH', '/api/notifications/read', { token: B.token, body: {} });
+    const probe1 = await req('POST', '/api/messages', {
+      token: A.token,
+      body: { conversationId: convId, content: 'preview probe one', clientMessageId: 'test-prev-1' },
+    });
+    const bNotifs1 = await req('GET', '/api/notifications', { token: B.token });
+    const notif1 = (bNotifs1.data.notifications || []).find(
+      (n) => n.messageId && n.messageId._id === probe1.data.message._id
+    );
+    check('settings prefs: notification previews are shown by default',
+      !!notif1 && notif1.messageId.content === 'preview probe one');
+    await req('PATCH', '/api/users/me/preferences', {
+      token: B.token,
+      body: { notificationPreviews: false },
+    });
+    const probe2 = await req('POST', '/api/messages', {
+      token: A.token,
+      body: { conversationId: convId, content: 'preview probe two', clientMessageId: 'test-prev-2' },
+    });
+    const bNotifs2 = await req('GET', '/api/notifications', { token: B.token });
+    const notif2 = (bNotifs2.data.notifications || []).find(
+      (n) => n.messageId && n.messageId._id === probe2.data.message._id
+    );
+    check('settings prefs: turning previews off hides message text in notifications',
+      !!notif2 && notif2.messageId.content === '');
+    await req('PATCH', '/api/users/me/preferences', {
+      token: B.token,
+      body: { notificationPreviews: true },
+    });
 
     // --- v3.0 Phase B: locked + hidden chats (Modules 19 + 21) -------------
     const lockConvRes = await req('POST', '/api/conversations', {
