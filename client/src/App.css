@@ -3312,3 +3312,8 @@ a.mini-btn { text-decoration: none; display: inline-flex; align-items: center; }
 .reel-composer { background: var(--panel); color: var(--text); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--border); max-height: 62dvh; overflow-y: auto; }
 .reel-composer-preview { width: 100%; max-height: 220px; border-radius: 12px; background: #000; }
 .reel-composer-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* Developer credit (user request): brand subtitle + settings footer */
+.brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.brand-sub { font-size: 10px; font-weight: 500; color: var(--dim); letter-spacing: .02em; white-space: nowrap; }
+.settings-footer { text-align: center; color: var(--dim); font-size: 11.5px; margin: 18px 0 6px; }
