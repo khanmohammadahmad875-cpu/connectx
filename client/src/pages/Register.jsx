@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import AuthBackground from '../components/AuthBackground';
 
 export default function Register() {
   const { register } = useAuth();
@@ -17,7 +18,7 @@ export default function Register() {
     setBusy(true);
     try {
       await register(username, email, password);
-      navigate('/');
+      navigate('/home');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -27,6 +28,7 @@ export default function Register() {
 
   return (
     <div className="auth-shell">
+      <AuthBackground />
       <form className="auth-card" onSubmit={onSubmit}>
         <div className="brand center">
           <span className="brand-mark">CX</span>

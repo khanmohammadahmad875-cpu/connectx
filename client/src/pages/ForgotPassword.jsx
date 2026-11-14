@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
+import AuthBackground from '../components/AuthBackground';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -20,6 +21,7 @@ export default function ForgotPassword() {
 
   return (
     <div className="auth-shell">
+      <AuthBackground />
       <form className="auth-card" onSubmit={onSubmit}>
         <div className="brand center">
           <span className="brand-mark">CX</span>

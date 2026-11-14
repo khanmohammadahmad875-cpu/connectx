@@ -8,7 +8,8 @@ export function connectSocket() {
   if (!token) return null;
   if (socket && socket.connected) return socket;
   if (socket) socket.disconnect();
-  socket = io(API_URL, {
+  // Empty API_URL means same-origin (production single deploy / dev proxy).
+  socket = io(API_URL || window.location.origin, {
     auth: { token },
     reconnection: true,
     reconnectionAttempts: Infinity,

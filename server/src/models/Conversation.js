@@ -2,10 +2,14 @@ const mongoose = require('mongoose');
 
 const conversationSchema = new mongoose.Schema(
   {
-    type: { type: String, enum: ['private', 'group'], required: true },
+    type: { type: String, enum: ['private', 'group', 'channel'], required: true },
     participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }],
     groupName: { type: String, default: '' },
     groupImage: { type: String, default: '' },
+    // Channel fields (Module 14): only meaningful when type === 'channel'.
+    // A channel is a broadcast conversation: admins post, members follow.
+    description: { type: String, default: '', maxlength: 500 },
+    visibility: { type: String, enum: ['public', 'private'], default: 'public' },
     admins: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     lastMessage: { type: mongoose.Schema.Types.ObjectId, ref: 'Message', default: null },

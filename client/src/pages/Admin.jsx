@@ -50,6 +50,14 @@ export default function Admin() {
     load();
   }
 
+  async function toggleBusinessVerified(user) {
+    await api(`/api/admin/users/${user._id}/business-verified`, {
+      method: 'PATCH',
+      body: { verified: !user.business?.verified },
+    });
+    load();
+  }
+
   async function setReportStatus(report, status) {
     await api(`/api/admin/reports/${report._id}`, { method: 'PATCH', body: { status } });
     load();
@@ -104,13 +112,25 @@ export default function Admin() {
                         : u.status === 'online'
                           ? 'Online'
                           : 'Offline'}
+                    {u.spamFlagged && (
+                      <span className="spam-flag" title={u.spamFlagReason || 'Auto-flagged by reports'}>
+                        {' '}⚠️ Flagged
+                      </span>
+                    )}
                   </td>
                   <td>
-                    {u.role !== 'admin' && !u.isDeactivated && (
-                      <button className="mini-btn danger" onClick={() => toggleSuspend(u)}>
-                        {u.isBlocked ? 'Unsuspend' : 'Suspend'}
-                      </button>
-                    )}
+                    <span className="admin-actions">
+                      {u.business?.isBusiness && (
+                        <button className="mini-btn" onClick={() => toggleBusinessVerified(u)}>
+                          {u.business.verified ? 'Remove verified ✔' : 'Verify business'}
+                        </button>
+                      )}
+                      {u.role !== 'admin' && !u.isDeactivated && (
+                        <button className="mini-btn danger" onClick={() => toggleSuspend(u)}>
+                          {u.isBlocked ? 'Unsuspend' : 'Suspend'}
+                        </button>
+                      )}
+                    </span>
                   </td>
                 </tr>
               ))}

@@ -43,14 +43,18 @@ export function otherParticipant(conversation, myId) {
 
 export function conversationTitle(conversation, myId) {
   if (!conversation) return '';
-  if (conversation.type === 'group') return conversation.groupName || 'Group';
+  if (conversation.type === 'group' || conversation.type === 'channel') {
+    return conversation.groupName || (conversation.type === 'channel' ? 'Channel' : 'Group');
+  }
   const other = otherParticipant(conversation, myId);
   return other ? other.username : 'Conversation';
 }
 
 export function conversationAvatar(conversation, myId) {
   if (!conversation) return '';
-  if (conversation.type === 'group') return conversation.groupImage || '';
+  if (conversation.type === 'group' || conversation.type === 'channel') {
+    return conversation.groupImage || '';
+  }
   const other = otherParticipant(conversation, myId);
   return other ? other.profilePicture || '' : '';
 }

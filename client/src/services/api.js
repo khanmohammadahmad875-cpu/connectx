@@ -1,7 +1,12 @@
 // REST client for the ConnectX API.
 // Access token lives in localStorage; when it expires (401) we silently use
 // the HttpOnly refresh cookie once and retry the request.
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+//
+// API base: VITE_API_URL when set (split client/server deploys); otherwise
+// SAME-ORIGIN relative URLs — the production server serves this client
+// itself (SERVE_CLIENT), and the Vite dev server proxies /api in local dev.
+const API_URL = import.meta.env.VITE_API_URL || '';
+import { getUnlockToken } from '../utils/lock';
 
 const TOKEN_KEY = 'connectx_access_token';
 
@@ -24,11 +29,17 @@ async function refreshAccessToken() {
   return data.accessToken;
 }
 
-export async function api(path, { method = 'GET', body, _retried = false } = {}) {
-  const headers = {};
+export async function api(path, { method = 'GET', body, headers: extraHeaders, unlock = false, _retried = false } = {}) {
+  const headers = { ...(extraHeaders || {}) };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
+  // Chat lock (Module 19): locked-conversation requests carry the unlock
+  // grant; the server refuses them with 423 without it.
+  if (unlock) {
+    const grant = getUnlockToken();
+    if (grant) headers['X-Unlock-Token'] = grant;
+  }
 
   const res = await fetch(`${API_URL}${path}`, {
     method,
@@ -39,7 +50,7 @@ export async function api(path, { method = 'GET', body, _retried = false } = {})
 
   if (res.status === 401 && !_retried && !path.startsWith('/api/auth/')) {
     const fresh = await refreshAccessToken();
-    if (fresh) return api(path, { method, body, _retried: true });
+    if (fresh) return api(path, { method, body, headers: extraHeaders, unlock, _retried: true });
   }
 
   const data = await res.json().catch(() => ({}));

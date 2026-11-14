@@ -4,6 +4,7 @@ const http = require('http');
 const app = require('./app');
 const { connectDB, disconnectDB } = require('./config/db');
 const { initSocket } = require('./socket');
+const { startReminderChecker } = require('./services/reminderService');
 const User = require('./models/User');
 
 const PORT = process.env.PORT || 5000;
@@ -25,6 +26,10 @@ async function start() {
   const httpServer = http.createServer(app);
   const io = initSocket(httpServer, process.env.CLIENT_URL || 'http://localhost:5173');
   app.set('io', io);
+
+  // Event reminder checker (module 31): an in-memory interval that turns
+  // due event reminders into in-app notifications while the server runs.
+  startReminderChecker();
 
   httpServer.listen(PORT, () => {
     console.log(`[server] ConnectX API running on http://localhost:${PORT}`);

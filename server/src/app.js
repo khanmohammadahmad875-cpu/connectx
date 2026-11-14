@@ -51,9 +51,20 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/conversations', require('./routes/conversations'));
 app.use('/api/messages', require('./routes/messages'));
 app.use('/api/uploads', require('./routes/uploads'));
+app.use('/api/status', require('./routes/status'));
+app.use('/api/weather', require('./routes/weather'));
 app.use('/api/notifications', require('./routes/notifications'));
+app.use('/api/chat-locks', require('./routes/chatLocks'));
+app.use('/api/calls', require('./routes/calls'));
+app.use('/api/live-location', require('./routes/liveLocation'));
+app.use('/api/business', require('./routes/business'));
+app.use('/api/channels', require('./routes/channels'));
+app.use('/api/communities', require('./routes/communities'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/events', require('./routes/events'));
+app.use('/api/docs', require('./routes/docs'));
+app.use('/api/security', require('./routes/security'));
 
 // In production the server can also serve the built React client (single deploy).
 if (process.env.SERVE_CLIENT === 'true') {

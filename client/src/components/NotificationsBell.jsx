@@ -43,8 +43,18 @@ export default function NotificationsBell({ notifications, unreadCount, onOpenCo
                 }}
               >
                 <span className="bell-text">
-                  <strong>{n.senderId?.username || 'Someone'}</strong> sent a message
-                  {n.messageId?.content ? `: “${n.messageId.content.slice(0, 60)}”` : ''}
+                  {n.type === 'event_reminder' || n.type === 'security' ? (
+                    n.text || 'Notification'
+                  ) : n.type === 'missed_call' ? (
+                    <>
+                      <strong>{n.senderId?.username || 'Someone'}</strong> missed call
+                    </>
+                  ) : (
+                    <>
+                      <strong>{n.senderId?.username || 'Someone'}</strong> sent a message
+                      {n.messageId?.content ? `: “${n.messageId.content.slice(0, 60)}”` : ''}
+                    </>
+                  )}
                 </span>
                 <span className="bell-time">{formatListTime(n.createdAt)}</span>
               </button>

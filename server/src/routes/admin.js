@@ -46,6 +46,26 @@ router.patch('/users/:id/suspend', validate(z.object({ suspend: z.boolean() })),
   }
 });
 
+// Business verification (module 30): the ONLY way the verified badge is
+// set. Owners cannot self-verify — the owner-facing business schema does
+// not even accept the field.
+router.patch(
+  '/users/:id/business-verified',
+  validate(z.object({ verified: z.boolean() })),
+  async (req, res, next) => {
+    try {
+      const user = await User.findById(req.params.id);
+      if (!user) return res.status(404).json({ message: 'User not found' });
+      if (!user.business) user.business = {};
+      user.business.verified = req.body.verified;
+      await user.save();
+      return res.json({ user: user.toSafeJSON() });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
 router.get('/reports', async (req, res, next) => {
   try {
     const reports = await Report.find()

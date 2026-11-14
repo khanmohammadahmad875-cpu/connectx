@@ -6,7 +6,9 @@ const crypto = require('crypto');
 const UPLOAD_DIR = path.join(__dirname, '..', '..', 'uploads');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-// Allowed: images + common documents. Anything else is rejected (400).
+// Allowed: images, common documents and voice-message audio (Module 5).
+// Anything else is rejected (400). Browsers record voice notes as
+// webm/ogg/mp4 depending on the platform, so all common audio types pass.
 const ALLOWED = new Map([
   ['image/jpeg', 'image'],
   ['image/png', 'image'],
@@ -16,6 +18,14 @@ const ALLOWED = new Map([
   ['text/plain', 'file'],
   ['application/msword', 'file'],
   ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'file'],
+  ['audio/webm', 'audio'],
+  ['audio/ogg', 'audio'],
+  ['audio/mpeg', 'audio'],
+  ['audio/mp3', 'audio'],
+  ['audio/mp4', 'audio'],
+  ['audio/aac', 'audio'],
+  ['audio/wav', 'audio'],
+  ['audio/x-wav', 'audio'],
 ]);
 
 const storage = multer.diskStorage({

@@ -32,6 +32,38 @@ function verifyRefreshToken(token) {
   return jwt.verify(token, refreshSecret());
 }
 
+// Short-lived unlock grant for locked chats (Module 19). Issued only after
+// the user's PIN verified server-side; scoped so it can never double as an
+// access token. 10 minutes keeps an unattended unlocked session short.
+const UNLOCK_TTL = '10m';
+
+function signUnlockToken(userId) {
+  const expiresAt = Date.now() + 10 * 60 * 1000;
+  const token = jwt.sign(
+    { sub: userId.toString(), scope: 'chat_unlock' },
+    accessSecret(),
+    { expiresIn: UNLOCK_TTL }
+  );
+  return { token, expiresAt };
+}
+
+function verifyUnlockToken(token, userId) {
+  return !!verifyUnlockPayload(token, userId);
+}
+
+// Returns the verified payload (with exp) or null.
+function verifyUnlockPayload(token, userId) {
+  if (!token) return null;
+  try {
+    const payload = jwt.verify(token, accessSecret());
+    if (payload.scope !== 'chat_unlock') return null;
+    if (userId && payload.sub !== userId.toString()) return null;
+    return payload;
+  } catch (err) {
+    return null;
+  }
+}
+
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
@@ -62,6 +94,9 @@ module.exports = {
   signRefreshToken,
   verifyAccessToken,
   verifyRefreshToken,
+  signUnlockToken,
+  verifyUnlockToken,
+  verifyUnlockPayload,
   hashToken,
   setRefreshCookie,
   clearRefreshCookie,

@@ -1,7 +1,76 @@
 import { useState } from 'react';
+import Avatar from '../Avatar';
 import { formatTime } from '../../utils/format';
+import VoiceMessage from './VoiceMessage';
+import PollView from './PollView';
+import LocationView from './LocationView';
 
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+
+export function replyPreviewText(message) {
+  if (!message) return '';
+  if (message.deletedAt) return 'Deleted message';
+  switch (message.messageType) {
+    case 'image':
+      return 'Photo';
+    case 'audio':
+      return '🎤 Voice message';
+    case 'poll':
+      return `📊 ${message.poll?.question || 'Poll'}`;
+    case 'file':
+      return 'File';
+    case 'call':
+      return message.content || '📞 Call';
+    case 'location':
+      return '📍 Location';
+    case 'live_location':
+      return '📍 Live location';
+    default:
+      return message.content || '';
+  }
+}
+
+// Link safety (module 24): URLs render as links showing the bare domain;
+// links the server flagged (URL shortener or punycode host) get a warning
+// marker. Links are never blocked — the reader decides.
+const URL_SPLIT = /(https?:\/\/[^\s<>"')\]]+)/g;
+
+export function LinkifiedText({ text, linkFlags = [] }) {
+  if (!text) return null;
+  const byUrl = new Map((linkFlags || []).map((l) => [l.url, l]));
+  const parts = text.split(URL_SPLIT);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (!/^https?:\/\//i.test(part)) return <span key={i}>{part}</span>;
+        const clean = part.replace(/[.,!?;:]+$/, '');
+        const trailing = part.slice(clean.length);
+        const info = byUrl.get(clean) || byUrl.get(part);
+        let domain = clean;
+        try {
+          domain = new URL(clean).hostname.replace(/^www\./, '');
+        } catch (err) {
+          /* keep the raw text as the label */
+        }
+        return (
+          <span key={i}>
+            <a
+              className={`bubble-link ${info?.flagged ? 'flagged' : ''}`}
+              href={clean}
+              target="_blank"
+              rel="noreferrer"
+              title={info?.flagged ? `External link via ${domain} — the final destination is hidden. Open with care.` : clean}
+            >
+              {domain}
+              {info?.flagged ? ' ⚠️' : ''}
+            </a>
+            {trailing}
+          </span>
+        );
+      })}
+    </>
+  );
+}
 
 function Ticks({ receipt }) {
   if (receipt === 'read') return <span className="ticks read" title="Read">✓✓</span>;
@@ -18,11 +87,28 @@ export default function MessageBubble({
   onReply,
   onEdit,
   onDelete,
+  onDeleteForMe,
   onReact,
   onReport,
+  onVote,
+  onClosePoll,
+  onStopLiveLocation,
 }) {
   const [showPicker, setShowPicker] = useState(false);
+  const [showDeleteMenu, setShowDeleteMenu] = useState(false);
   const sender = typeof message.senderId === 'object' ? message.senderId : null;
+
+  // Call log entries render as a centered system line, not a bubble.
+  if (message.messageType === 'call' && !message.deletedAt) {
+    return (
+      <div className="msg-row system">
+        <div className="system-bubble">
+          <span>{message.content || '📞 Call'}</span>
+          <span className="msg-time">{formatTime(message.createdAt)}</span>
+        </div>
+      </div>
+    );
+  }
 
   if (message.deletedAt) {
     return (
@@ -43,6 +129,11 @@ export default function MessageBubble({
 
   return (
     <div className={`msg-row ${mine ? 'mine' : ''}`}>
+      {isGroup && !mine && sender && (
+        <span className="msg-avatar">
+          <Avatar name={sender.username} src={sender.profilePicture} size={28} />
+        </span>
+      )}
       <div className={`bubble ${mine ? 'mine' : 'theirs'} ${message.pending ? 'pending' : ''}`}>
         {isGroup && !mine && sender && <div className="bubble-sender">{sender.username}</div>}
 
@@ -51,15 +142,7 @@ export default function MessageBubble({
             <span className="reply-quote-name">
               {message.replyTo.senderId?.username || 'Message'}
             </span>
-            <span className="reply-quote-text">
-              {message.replyTo.deletedAt
-                ? 'Deleted message'
-                : message.replyTo.messageType === 'text'
-                  ? message.replyTo.content
-                  : message.replyTo.messageType === 'image'
-                    ? 'Photo'
-                    : 'File'}
-            </span>
+            <span className="reply-quote-text">{replyPreviewText(message.replyTo)}</span>
           </div>
         )}
 
@@ -74,11 +157,32 @@ export default function MessageBubble({
             <span>{message.content || 'Download file'}</span>
           </a>
         )}
+        {message.messageType === 'audio' && message.attachmentUrl && (
+          <VoiceMessage message={message} />
+        )}
+        {message.messageType === 'poll' && message.poll && (
+          <PollView message={message} myId={myId} onVote={onVote} onClosePoll={onClosePoll} />
+        )}
+        {message.messageType === 'location' && message.location && (
+          <LocationView location={message.location} />
+        )}
+        {message.messageType === 'live_location' && message.liveLocation && (
+          <LocationView
+            live={message.liveLocation}
+            onStopLive={
+              mine && onStopLiveLocation ? () => onStopLiveLocation(message) : null
+            }
+          />
+        )}
         {message.content && message.messageType === 'text' && (
-          <p className="bubble-text">{message.content}</p>
+          <p className="bubble-text">
+            <LinkifiedText text={message.content} linkFlags={message.linkFlags} />
+          </p>
         )}
         {message.content && message.messageType === 'image' && (
-          <p className="bubble-text">{message.content}</p>
+          <p className="bubble-text">
+            <LinkifiedText text={message.content} linkFlags={message.linkFlags} />
+          </p>
         )}
 
         <div className="bubble-meta">
@@ -111,12 +215,34 @@ export default function MessageBubble({
         >
           ☺
         </button>
-        {mine && (
-          <>
-            <button title="Edit" onClick={() => onEdit(message)}>✎</button>
-            <button title="Delete" onClick={() => onDelete(message)}>🗑</button>
-          </>
+        {mine && message.messageType === 'text' && (
+          <button title="Edit" onClick={() => onEdit(message)}>✎</button>
         )}
+        <span className="delete-menu-wrap">
+          <button title="Delete" onClick={() => setShowDeleteMenu((s) => !s)}>🗑</button>
+          {showDeleteMenu && (
+            <span className="delete-menu">
+              {mine && (
+                <button
+                  onClick={() => {
+                    setShowDeleteMenu(false);
+                    onDelete(message);
+                  }}
+                >
+                  Delete for everyone
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setShowDeleteMenu(false);
+                  onDeleteForMe(message);
+                }}
+              >
+                Delete for me
+              </button>
+            </span>
+          )}
+        </span>
         {!mine && (
           <button title="Report" onClick={() => onReport(message)}>⚑</button>
         )}
