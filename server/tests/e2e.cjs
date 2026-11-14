@@ -369,6 +369,42 @@ async function main() {
     });
     check('Executable upload rejected (400)', upBad.status === 400);
 
+    // Typeless uploads from phone pickers: when the declared type is
+    // application/octet-stream, the kind is inferred from the extension.
+    const formOctetImg = new FormData();
+    formOctetImg.append('file', new Blob(['fake-jpeg-bytes'], { type: 'application/octet-stream' }), 'photo.jpg');
+    const upOctetImg = await fetch(`${BASE}/api/uploads`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${A.token}` },
+      body: formOctetImg,
+    });
+    const upOctetImgData = await upOctetImg.json().catch(() => ({}));
+    check('Typeless (.jpg, octet-stream) upload is accepted and classified as image',
+      upOctetImg.status === 201 && upOctetImgData.messageType === 'image' && !!upOctetImgData.url);
+
+    const formOctetVideo = new FormData();
+    formOctetVideo.append('file', new Blob(['fake-mp4-bytes'], { type: 'application/octet-stream' }), 'clip.mp4');
+    const upOctetVideo = await fetch(`${BASE}/api/uploads`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${A.token}` },
+      body: formOctetVideo,
+    });
+    const upOctetVideoData = await upOctetVideo.json().catch(() => ({}));
+    check('Typeless (.mp4, octet-stream) upload is accepted and classified as video',
+      upOctetVideo.status === 201 && upOctetVideoData.messageType === 'video' && !!upOctetVideoData.url);
+
+    // HEIC photos get their own clear error, not a generic rejection.
+    const formHeic = new FormData();
+    formHeic.append('file', new Blob(['fake-heic-bytes'], { type: 'image/heic' }), 'photo.heic');
+    const upHeic = await fetch(`${BASE}/api/uploads`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${A.token}` },
+      body: formHeic,
+    });
+    const upHeicData = await upHeic.json().catch(() => ({}));
+    check('HEIC upload is rejected with a clear HEIC message (400)',
+      upHeic.status === 400 && /HEIC/i.test(upHeicData.message || ''));
+
     // --- Groups ------------------------------------------------------------------
     const groupRes = await req('POST', '/api/conversations', {
       token: A.token,
@@ -2420,6 +2456,151 @@ async function main() {
         (linkMsg3.data.message.linkFlags || []).some(
           (l) => l.flagged === true && l.reasons.includes('punycode-domain')
         ));
+
+    // --- Contacts discovery (WhatsApp-style) ----------------------------------
+    // B publishes a phone number on the contact card as "everyone".
+    await req('PATCH', '/api/users/me/contact-card', {
+      token: B.token,
+      body: { fields: { phone: '+92 300 1112223' }, visibility: { phone: 'everyone' } },
+    });
+    const discByEmail = await req('POST', '/api/users/discover', {
+      token: A.token,
+      body: { emails: ['  BILAL@test.dev '], phones: [] },
+    });
+    check('discover: email match returns the user (case/space-insensitive)',
+      discByEmail.status === 200 && (discByEmail.data.users || []).some((u) => u._id === B.id));
+    const discRaw = JSON.stringify(discByEmail.data);
+    check('discover: the response contains no email, phone or contact-card data',
+      !discRaw.includes('bilal@test.dev') &&
+        !discRaw.includes('3001112223') &&
+        !discRaw.includes('300 1112223') &&
+        !discRaw.includes('contactCard'));
+    const discByPhone = await req('POST', '/api/users/discover', {
+      token: A.token,
+      body: { emails: [], phones: ['03001112223'] }, // local format of the same number
+    });
+    check('discover: phone matches across local/international formats when visibility is everyone',
+      discByPhone.status === 200 && (discByPhone.data.users || []).some((u) => u._id === B.id));
+    await req('PATCH', '/api/users/me/contact-card', {
+      token: B.token,
+      body: { visibility: { phone: 'contacts' } },
+    });
+    const discPhoneContacts = await req('POST', '/api/users/discover', {
+      token: A.token,
+      body: { emails: [], phones: ['03001112223'] },
+    });
+    check('discover: phone does NOT match when visibility is contacts',
+      discPhoneContacts.status === 200 &&
+        !(discPhoneContacts.data.users || []).some((u) => u._id === B.id));
+    await req('PATCH', '/api/users/me/contact-card', {
+      token: B.token,
+      body: { visibility: { phone: 'nobody' } },
+    });
+    const discPhoneNobody = await req('POST', '/api/users/discover', {
+      token: A.token,
+      body: { emails: [], phones: ['+923001112223'] },
+    });
+    check('discover: phone does NOT match when visibility is nobody',
+      discPhoneNobody.status === 200 &&
+        !(discPhoneNobody.data.users || []).some((u) => u._id === B.id));
+    const discSelf = await req('POST', '/api/users/discover', {
+      token: A.token,
+      body: { emails: ['ahmad@test.dev'], phones: [] },
+    });
+    check('discover: a user never matches themselves',
+      discSelf.status === 200 && !(discSelf.data.users || []).some((u) => u._id === A.id));
+
+    // --- Reels ------------------------------------------------------------------
+    const prefSet = await req('PATCH', '/api/users/me/preferences', {
+      token: A.token,
+      body: { reelInterests: ['Tech', 'Funny'] },
+    });
+    check('reels prefs: reelInterests saved through preferences',
+      prefSet.status === 200 &&
+        JSON.stringify(prefSet.data.preferences.reelInterests) === JSON.stringify(['Tech', 'Funny']));
+    const prefGet = await req('GET', '/api/users/me/preferences', { token: A.token });
+    check('reels prefs: reelInterests round-trips on read',
+      JSON.stringify(prefGet.data.preferences.reelInterests) === JSON.stringify(['Tech', 'Funny']));
+    const rlPrefBad = await req('PATCH', '/api/users/me/preferences', {
+      token: A.token,
+      body: { reelInterests: ['NotARealInterest'] },
+    });
+    check('reels prefs: an unknown interest is rejected (400)', rlPrefBad.status === 400);
+    // Narrow A to Tech only, for the feed-ranking check below.
+    await req('PATCH', '/api/users/me/preferences', {
+      token: A.token,
+      body: { reelInterests: ['Tech'] },
+    });
+
+    const reelForm = new FormData();
+    reelForm.append('file', new Blob([Buffer.from('fake-reel-bytes')], { type: 'video/mp4' }), 'reel.mp4');
+    const reelUp = await fetch(`${BASE}/api/uploads`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${B.token}` },
+      body: reelForm,
+    });
+    const reelUpData = await reelUp.json().catch(() => ({}));
+    check('reels: clip uploads through the existing video pipeline',
+      reelUp.status === 201 && reelUpData.messageType === 'video' && !!reelUpData.url);
+
+    const badReel = await req('POST', '/api/reels', {
+      token: B.token,
+      body: { videoUrl: reelUpData.url, caption: 'nope', interest: 'NotARealInterest' },
+    });
+    check('reels: creating with an unknown interest is rejected (400)', badReel.status === 400);
+
+    // The Tech reel is created FIRST (older) and the Funny reel second
+    // (newer): for A (interests: Tech) the interest tier must outrank recency.
+    const techReel = await req('POST', '/api/reels', {
+      token: B.token,
+      body: { videoUrl: reelUpData.url, caption: 'Tech talk', interest: 'Tech' },
+    });
+    check('reels: create succeeds', techReel.status === 201 && !!techReel.data.reel._id);
+    const funnyReel = await req('POST', '/api/reels', {
+      token: B.token,
+      body: { videoUrl: reelUpData.url, caption: 'Funny clip', interest: 'Funny' },
+    });
+    const rlFeedA = await req('GET', '/api/reels/feed', { token: A.token });
+    check('reels: interest-matched reels rank before newer non-matched ones',
+      rlFeedA.status === 200 &&
+        (rlFeedA.data.reels || []).length >= 2 &&
+        rlFeedA.data.reels[0]._id === techReel.data.reel._id &&
+        rlFeedA.data.reels[1]._id === funnyReel.data.reel._id);
+
+    // Pagination: 9 more reels -> 11 total; page size is 8.
+    for (let i = 0; i < 9; i += 1) {
+      await req('POST', '/api/reels', {
+        token: B.token,
+        body: { videoUrl: reelUpData.url, caption: `filler ${i}`, interest: 'Sports' },
+      });
+    }
+    const page1 = await req('GET', '/api/reels/feed', { token: C.token });
+    const page2 = await req('GET', `/api/reels/feed?cursor=${encodeURIComponent(page1.data.nextCursor || '')}`, {
+      token: C.token,
+    });
+    const ids1 = (page1.data.reels || []).map((r) => r._id);
+    const ids2 = (page2.data.reels || []).map((r) => r._id);
+    check('reels: feed paginates 8 + rest via cursor, without duplicates',
+      page1.status === 200 && ids1.length === 8 && !!page1.data.nextCursor &&
+        page2.status === 200 && ids2.length === 3 && !page2.data.nextCursor &&
+        new Set([...ids1, ...ids2]).size === 11);
+
+    const like1 = await req('POST', `/api/reels/${techReel.data.reel._id}/like`, { token: A.token });
+    check('reels: like toggles on',
+      like1.status === 200 && like1.data.liked === true && like1.data.likesCount === 1);
+    const like2 = await req('POST', `/api/reels/${techReel.data.reel._id}/like`, { token: A.token });
+    check('reels: like toggles back off',
+      like2.status === 200 && like2.data.liked === false && like2.data.likesCount === 0);
+
+    const view1 = await req('POST', `/api/reels/${techReel.data.reel._id}/view`, { token: A.token });
+    const view2 = await req('POST', `/api/reels/${techReel.data.reel._id}/view`, { token: C.token });
+    check('reels: views increment',
+      view1.status === 200 && view1.data.views === 1 && view2.status === 200 && view2.data.views === 2);
+
+    const delForbidden = await req('DELETE', `/api/reels/${techReel.data.reel._id}`, { token: A.token });
+    check('reels: a non-author cannot delete a reel (403)', delForbidden.status === 403);
+    const rlDelOwn = await req('DELETE', `/api/reels/${techReel.data.reel._id}`, { token: B.token });
+    check('reels: the author can delete their own reel', rlDelOwn.status === 200);
 
     // --- Spam rate limits on a dedicated low-limit server -----------------------
     // The main suite needs generous limits, so the spam checks run against a
