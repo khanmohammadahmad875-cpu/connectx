@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
+const compression = require('compression');
 
 const { UPLOAD_DIR } = require('./middleware/upload');
 
@@ -20,6 +21,10 @@ app.use(
 );
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
+// Gzip everything (API JSON + the client bundle): the ~700 KB app JS
+// drops to roughly a quarter of its size on the wire, which is the
+// single biggest loading-speed win on mobile data.
+app.use(compression());
 
 // General API rate limiting (auth routes have their own stricter limiter).
 app.use(
@@ -33,7 +38,7 @@ app.use(
 );
 
 // --- Static uploads (local storage mode) -------------------------------------
-app.use('/uploads', express.static(UPLOAD_DIR));
+app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '7d' }));
 
 // --- Routes ------------------------------------------------------------------
 app.get('/api/health', (req, res) => {
@@ -54,6 +59,7 @@ app.use('/api/uploads', require('./routes/uploads'));
 app.use('/api/status', require('./routes/status'));
 app.use('/api/reels', require('./routes/reels'));
 app.use('/api/weather', require('./routes/weather'));
+app.use('/api/prayer-times', require('./routes/prayerTimes'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/chat-locks', require('./routes/chatLocks'));
 app.use('/api/calls', require('./routes/calls'));
@@ -70,8 +76,20 @@ app.use('/api/security', require('./routes/security'));
 // In production the server can also serve the built React client (single deploy).
 if (process.env.SERVE_CLIENT === 'true') {
   const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
-  app.use(express.static(clientDist));
+  // Vite asset filenames are content-hashed, so they can be cached
+  // forever; index.html itself must always be revalidated so a new
+  // deploy shows up on the next open instead of a stale cached shell.
+  app.use(
+    express.static(clientDist, {
+      maxAge: '30d',
+      immutable: true,
+      setHeaders(res, filePath) {
+        if (filePath.endsWith('index.html')) res.setHeader('Cache-Control', 'no-cache');
+      },
+    })
+  );
   app.get(/^(?!\/api|\/uploads).*/, (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
     res.sendFile(path.join(clientDist, 'index.html'));
   });
 }
