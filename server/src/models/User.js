@@ -128,6 +128,10 @@ const userSchema = new mongoose.Schema(
       // Default disappearing-message timer applied to conversations this
       // user creates (seconds; 0 = off).
       defaultDisappearingDuration: { type: Number, default: 0 },
+      // Reels: the interests this user picked; their feed ranks reels with
+      // a matching interest first. Values are validated against the shared
+      // REEL_INTERESTS list in the preferences route.
+      reelInterests: { type: [String], default: [] },
     },
     // Contact card / address book (module 28). Field values live here; who may
     // see each field is governed by contactVisibility and enforced by the API.
