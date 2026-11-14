@@ -24,6 +24,9 @@ export default function CallUI() {
     toggleMute,
     toggleCamera,
     switchCamera,
+    facingMode,
+    flashOn,
+    toggleFlash,
   } = useCall();
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -112,6 +115,9 @@ export default function CallUI() {
           <h3>{peer.username || '…'}</h3>
           <p className="call-sub">{isVideo ? '📹 Video calling…' : '📞 Ringing…'}</p>
           {isVideo && <video ref={localVideoRef} className="call-preview" autoPlay muted playsInline />}
+          {isVideo && flashOn && facingMode === 'user' && (
+            <div className="call-screenlight" aria-hidden="true" />
+          )}
           <div className="call-actions">
             {isVideo && (
               <button
@@ -120,6 +126,15 @@ export default function CallUI() {
                 title="Switch camera (front / back)"
               >
                 🔄
+              </button>
+            )}
+            {isVideo && (
+              <button
+                className={`call-btn control call-flash-btn ${flashOn ? 'on' : ''}`}
+                onClick={toggleFlash}
+                title={flashOn ? 'Flash light: On' : 'Flash light: Off'}
+              >
+                ⚡<span className="flash-state">{flashOn ? 'On' : 'Off'}</span>
               </button>
             )}
             <button className="call-btn reject" onClick={endCall} title="Cancel call">
@@ -135,6 +150,9 @@ export default function CallUI() {
   return (
     <div className="call-overlay">
       <div className={`call-card incall ${isVideo ? 'video' : ''}`}>
+        {isVideo && flashOn && facingMode === 'user' && (
+          <div className="call-screenlight" aria-hidden="true" />
+        )}
         {isVideo ? (
           <div className="call-video-wrap">
             <video ref={remoteVideoRef} className="call-remote-video" autoPlay playsInline />
@@ -175,6 +193,15 @@ export default function CallUI() {
               title="Switch camera (front / back)"
             >
               🔄
+            </button>
+          )}
+          {isVideo && (
+            <button
+              className={`call-btn control call-flash-btn ${flashOn ? 'on' : ''}`}
+              onClick={toggleFlash}
+              title={flashOn ? 'Flash light: On' : 'Flash light: Off'}
+            >
+              ⚡<span className="flash-state">{flashOn ? 'On' : 'Off'}</span>
             </button>
           )}
           {speakerSupported && (
