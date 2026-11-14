@@ -20,12 +20,13 @@ const Documents = lazy(() => import('./pages/Documents'));
 const Security = lazy(() => import('./pages/Security'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Admin = lazy(() => import('./pages/Admin'));
-import LoadingScreen from './components/LoadingScreen';
+import LoadingScreen, { useSplashMin } from './components/LoadingScreen';
 import './App.css';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) {
+  const splash = useSplashMin(loading);
+  if (splash) {
     return <LoadingScreen />;
   }
   if (!user) return <Navigate to="/login" replace />;
@@ -34,7 +35,8 @@ function ProtectedRoute({ children }) {
 
 function GuestRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return <LoadingScreen />;
+  const splash = useSplashMin(loading);
+  if (splash) return <LoadingScreen />;
   if (user) return <Navigate to="/home" replace />;
   return children;
 }
