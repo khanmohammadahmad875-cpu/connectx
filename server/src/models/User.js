@@ -200,6 +200,11 @@ const userSchema = new mongoose.Schema(
     refreshTokens: { type: [refreshTokenSchema], select: false },
     resetPasswordTokenHash: { type: String, select: false },
     resetPasswordExpires: { type: Date, select: false },
+    // Email OTP alternative to the reset link: 6-digit code, hashed,
+    // 10-minute expiry, cleared after 5 wrong attempts.
+    resetOtpHash: { type: String, select: false },
+    resetOtpExpires: { type: Date, select: false },
+    resetOtpAttempts: { type: Number, default: 0, select: false },
     // Chat lock (Module 19) + hidden chats (Module 21). The lock PIN and the
     // secret code are stored ONLY as bcrypt hashes (select: false) and are
     // never returned by the API. Failed-attempt counters implement the
@@ -247,6 +252,9 @@ userSchema.methods.toSafeJSON = function toSafeJSON() {
   delete obj.refreshTokens;
   delete obj.resetPasswordTokenHash;
   delete obj.resetPasswordExpires;
+  delete obj.resetOtpHash;
+  delete obj.resetOtpExpires;
+  delete obj.resetOtpAttempts;
   delete obj.chatLockPinHash;
   delete obj.secretCodeHash;
   delete obj.totpSecretEncrypted;
