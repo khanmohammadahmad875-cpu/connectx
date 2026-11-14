@@ -3628,3 +3628,58 @@ label.azan-setrow { cursor: default; }
 .azan-set-main small { opacity: 0.6; font-size: 12.5px; }
 .azan-chev { font-size: 20px; opacity: 0.45; }
 .azan-note { margin-top: 10px; }
+
+/* --- Namaz card: LIQUID GLASS + 3D, matched to the rest of ConnectX —
+   frosted translucent panels over the live-weather scene, same radii,
+   shadows and accent gradient as every other Home card, so the whole
+   app reads as one UI. --- */
+.azan { background: transparent; border: none; box-shadow: none; padding: 0; color: inherit; }
+.azan-search input {
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 4px 14px rgba(9, 60, 44, 0.08);
+}
+.azan-place {
+  font-family: inherit; color: inherit; font-size: 16px;
+  border-bottom: 1px solid rgba(120, 160, 145, 0.35); padding-bottom: 8px;
+}
+.azan-next {
+  background: linear-gradient(120deg, rgba(10, 160, 110, 0.88), rgba(11, 138, 95, 0.88));
+  color: #fff; border-radius: 14px; font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 10px 22px rgba(10, 140, 95, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.azan-list { gap: 8px; }
+.azan-list li {
+  background: rgba(255, 255, 255, 0.48);
+  border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 16px;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 20px rgba(9, 60, 44, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+.azan-list li.active {
+  background: linear-gradient(120deg, #0aa06e, #0b8a5f);
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 12px 24px rgba(10, 140, 95, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.azan-name { font-family: inherit; letter-spacing: 0; }
+.azan-time { font-weight: 600; }
+.azan-gearpanel {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.azan-list li.active .azan-gearpanel { background: rgba(255, 255, 255, 0.92); }
+.azan-sec {
+  font-family: inherit; color: inherit; text-transform: none; letter-spacing: 0;
+  font-size: 16px; font-weight: 700; border-bottom: none; padding-bottom: 0;
+}
+.azan-setrow {
+  background: rgba(255, 255, 255, 0.48);
+  border: 1px solid rgba(255, 255, 255, 0.6); border-radius: 16px;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 20px rgba(9, 60, 44, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+.azan-setrow select { border-color: rgba(160, 195, 180, 0.6); background: rgba(255, 255, 255, 0.85); }
