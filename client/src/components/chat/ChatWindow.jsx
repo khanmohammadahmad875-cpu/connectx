@@ -4,6 +4,7 @@ import MessageBubble, { replyPreviewText } from './MessageBubble';
 import VoiceRecorder from './VoiceRecorder';
 import PollModal from './PollModal';
 import LocationPicker from './LocationPicker';
+import CameraCapture from './CameraCapture';
 import { useCall } from '../../context/CallContext';
 import { api, uploadFile } from '../../services/api';
 import {
@@ -73,6 +74,7 @@ export default function ChatWindow({
   const [recording, setRecording] = useState(false);
   const [showPoll, setShowPoll] = useState(false);
   const [showLocation, setShowLocation] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [showQuick, setShowQuick] = useState(false);
   const { startCall, status: callStatus } = useCall();
   const scrollRef = useRef(null);
@@ -161,6 +163,25 @@ export default function ChatWindow({
           attachmentUrl: result.url,
         });
       }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  // A photo taken with the in-chat camera runs the same upload + send
+  // flow as a picked file.
+  async function handleCameraFile(file) {
+    setUploading(true);
+    setError('');
+    try {
+      const result = await uploadFile(file);
+      await onSend({
+        content: '',
+        messageType: result.messageType || 'image',
+        attachmentUrl: result.url,
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -364,6 +385,9 @@ export default function ChatWindow({
             accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.pdf,.txt,.doc,.docx"
             onChange={handleFile}
           />
+          <button className="icon-btn" title="Take a photo" onClick={() => setCameraOpen(true)}>
+            📷
+          </button>
           {!isChannel && (
             <button className="icon-btn" title="Create a poll" onClick={() => setShowPoll(true)}>
               📊
@@ -432,6 +456,13 @@ export default function ChatWindow({
           onCreate={async (poll) => {
             await onSend({ content: '', messageType: 'poll', attachmentUrl: '', poll });
           }}
+        />
+      )}
+
+      {cameraOpen && (
+        <CameraCapture
+          onClose={() => setCameraOpen(false)}
+          onPhoto={handleCameraFile}
         />
       )}
 
