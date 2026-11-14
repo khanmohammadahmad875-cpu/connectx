@@ -48,6 +48,8 @@ export const DEFAULT_PREFS = {
   theme: 'light',
   liveWeatherBackground: true,
   fontSize: 'medium',
+  fontFamily: 'default',
+  easyMode: false,
   animationsEnabled: true,
   notificationPreviews: true,
   soundAlerts: true,
