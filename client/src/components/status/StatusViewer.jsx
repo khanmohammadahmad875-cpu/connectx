@@ -24,10 +24,19 @@ export default function StatusViewer({
   const [showViewers, setShowViewers] = useState(false);
   const [cycle, setCycle] = useState(0); // restart the progress animation per status
   const viewedSentRef = useRef(new Set());
+  // Video statuses (item 10): the segment + auto-advance track the video's
+  // real duration and pause when the video pauses.
+  const videoRef = useRef(null);
+  const [videoDurationMs, setVideoDurationMs] = useState(0);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const [videoMuted, setVideoMuted] = useState(true);
 
   const group = groups[gi];
   const status = group?.statuses[si];
   const mine = !!group?.mine;
+  const isVideo = status?.type === 'video';
+  const segMs = isVideo && videoDurationMs ? videoDurationMs : DURATION_MS;
+  const segPaused = showViewers || (isVideo && !videoPlaying);
 
   const next = useCallback(() => {
     setShowViewers(false);
@@ -53,12 +62,30 @@ export default function StatusViewer({
     }
   }, [gi, si, groups]);
 
-  // Auto-advance timer (paused while the viewers list is open).
+  // Auto-advance timer (paused while the viewers list is open; for video
+  // statuses it follows the video's duration and its play state — the
+  // video's own onEnded also advances).
   useEffect(() => {
     if (!status || showViewers) return undefined;
-    const t = setTimeout(next, DURATION_MS);
+    if (isVideo && !videoPlaying) return undefined;
+    const t = setTimeout(next, segMs);
     return () => clearTimeout(t);
-  }, [status?._id, cycle, showViewers, next]);
+  }, [status?._id, cycle, showViewers, next, isVideo, videoPlaying, segMs]);
+
+  // Reset per-status video state; pause the video while the viewers list is
+  // open and resume when it closes.
+  useEffect(() => {
+    setVideoDurationMs(0);
+    setVideoPlaying(false);
+    setVideoMuted(true);
+  }, [status?._id]);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (showViewers) v.pause();
+    else if (isVideo) v.play().catch(() => {});
+  }, [showViewers, isVideo, status?._id]);
 
   // Record a view once per status.
   useEffect(() => {
@@ -93,7 +120,14 @@ export default function StatusViewer({
           <span key={s._id} className="status-seg">
             <span
               className={`status-seg-fill ${i < si ? 'done' : ''} ${i === si ? 'active' : ''}`}
-              style={i === si ? { animationDuration: `${DURATION_MS}ms` } : undefined}
+              style={
+                i === si
+                  ? {
+                      animationDuration: `${segMs}ms`,
+                      animationPlayState: segPaused ? 'paused' : 'running',
+                    }
+                  : undefined
+              }
               key={i === si ? `${s._id}-${cycle}` : s._id}
             />
           </span>
@@ -124,6 +158,37 @@ export default function StatusViewer({
       >
         {status.type === 'image' ? (
           <img className="status-image" src={status.mediaUrl} alt="status" />
+        ) : status.type === 'video' ? (
+          <>
+            <video
+              ref={videoRef}
+              key={status._id}
+              className="status-video"
+              src={status.mediaUrl}
+              autoPlay
+              muted={videoMuted}
+              playsInline
+              onLoadedMetadata={(e) => {
+                const d = e.currentTarget.duration;
+                if (Number.isFinite(d) && d > 0) setVideoDurationMs(Math.round(d * 1000));
+              }}
+              onPlay={() => setVideoPlaying(true)}
+              onPause={() => setVideoPlaying(false)}
+              onEnded={() => next()}
+              onClick={(e) => {
+                const v = e.currentTarget;
+                if (v.paused) v.play().catch(() => {});
+                else v.pause();
+              }}
+            />
+            <button
+              className="status-mute-btn"
+              title={videoMuted ? 'Unmute' : 'Mute'}
+              onClick={() => setVideoMuted((m) => !m)}
+            >
+              {videoMuted ? '🔇' : '🔊'}
+            </button>
+          </>
         ) : (
           <p className="status-text-big">{status.text}</p>
         )}

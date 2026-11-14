@@ -17,6 +17,7 @@ export default function StatusPanel({ me }) {
   const [busy, setBusy] = useState(false);
   const [viewer, setViewer] = useState(null); // { groups, groupIndex }
   const fileRef = useRef(null);
+  const videoFileRef = useRef(null);
 
   const load = useCallback(async () => {
     try {
@@ -60,7 +61,7 @@ export default function StatusPanel({ me }) {
     }
   }
 
-  async function postImageStatus(e) {
+  async function postMediaStatus(e, kind) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
@@ -68,10 +69,12 @@ export default function StatusPanel({ me }) {
     setError('');
     try {
       const result = await uploadFile(file);
-      if (result.messageType !== 'image') throw new Error('Please choose an image file');
+      if (result.messageType !== kind) {
+        throw new Error(kind === 'video' ? 'Please choose a video file' : 'Please choose an image file');
+      }
       await api('/api/status', {
         method: 'POST',
-        body: { type: 'image', mediaUrl: result.url },
+        body: { type: kind, mediaUrl: result.url },
       });
       setAddOpen(false);
       await load();
@@ -117,10 +120,13 @@ export default function StatusPanel({ me }) {
       >
         <span className={`status-ring ${group.hasUnviewed ? 'unseen' : 'seen'}`}>
           <Avatar name={group.user.username} src={group.user.profilePicture} size={46} />
+          {latest.type === 'video' && <span className="status-video-badge">🎥</span>}
         </span>
         <span className="conv-main">
           <span className="conv-title">{group.user.username}</span>
-          <span className="conv-preview">{formatListTime(latest.createdAt)}</span>
+          <span className="conv-preview">
+            {latest.type === 'video' ? '🎥 Video · ' : ''}{formatListTime(latest.createdAt)}
+          </span>
         </span>
       </button>
     );
@@ -143,6 +149,9 @@ export default function StatusPanel({ me }) {
         >
           <span className="status-ring seen">
             <Avatar name={me.username} src={me.profilePicture} size={46} />
+            {myGroup && myGroup.statuses[myGroup.statuses.length - 1]?.type === 'video' && (
+              <span className="status-video-badge">🎥</span>
+            )}
           </span>
           <span className="conv-main">
             <span className="conv-title">My status</span>
@@ -167,6 +176,9 @@ export default function StatusPanel({ me }) {
           <button className="btn small" onClick={() => fileRef.current?.click()} disabled={busy}>
             📷 Photo status
           </button>
+          <button className="btn small" onClick={() => videoFileRef.current?.click()} disabled={busy}>
+            🎥 Video status
+          </button>
           <button
             className="btn small"
             onClick={() => setTextMode((t) => !t)}
@@ -179,7 +191,14 @@ export default function StatusPanel({ me }) {
             type="file"
             hidden
             accept="image/jpeg,image/png,image/gif,image/webp"
-            onChange={postImageStatus}
+            onChange={(e) => postMediaStatus(e, 'image')}
+          />
+          <input
+            ref={videoFileRef}
+            type="file"
+            hidden
+            accept="video/mp4,video/webm,video/quicktime"
+            onChange={(e) => postMediaStatus(e, 'video')}
           />
         </div>
       )}
