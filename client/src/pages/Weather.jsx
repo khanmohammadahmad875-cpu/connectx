@@ -54,7 +54,7 @@ export default function Weather() {
   function useMyLocation() {
     setGeoNote('');
     if (!navigator.geolocation) {
-      setGeoNote('Geolocation is not available in this browser.');
+      setGeoNote('Is browser mein location ki sahulat nahi hai — city search kar lo.');
       return;
     }
     setBusy(true);
@@ -68,9 +68,9 @@ export default function Weather() {
       },
       () => {
         setBusy(false);
-        setGeoNote('Location permission was denied — search for a city instead.');
+        setGeoNote('Location nahi mili — phone ki Location ON karke dobara try karo, ya city search kar lo.');
       },
-      { timeout: 10000 }
+      { timeout: 10000, enableHighAccuracy: false }
     );
   }
 
