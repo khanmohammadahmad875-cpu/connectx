@@ -1,11 +1,14 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import AuthBackground from '../components/AuthBackground';
 
-// Password reset with the OTP scene: step 1 the email, step 2 the 6-digit
-// code from that email typed into big boxes, step 3 the new password.
-// The same email also carries the classic reset link for anyone who
+// Password reset with the OTP scene, the way the big apps do it:
+// step 1 the email, step 2 the 6-digit code typed into big boxes that
+// AUTO-VERIFY the moment the last digit lands (typing, pasting, or the
+// keyboard's one-time-code suggestion), with a 60-second resend timer
+// and a shake + clear on a wrong code; step 3 the new password. The
+// same email also carries the classic reset link for anyone who
 // prefers it — both roads end at the same /reset-password endpoint.
 export default function ForgotPassword() {
   const [step, setStep] = useState('email'); // email | code | password | done
@@ -16,7 +19,22 @@ export default function ForgotPassword() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+  const [shake, setShake] = useState(false);
   const boxRefs = useRef([]);
+  const verifyingRef = useRef(false);
+
+  // Resend countdown, like the big apps: "Send again in 0:47".
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+
+  // The first code box grabs the keyboard as soon as the step opens.
+  useEffect(() => {
+    if (step === 'code' && boxRefs.current[0]) boxRefs.current[0].focus();
+  }, [step]);
 
   async function sendCode(e) {
     if (e) e.preventDefault();
@@ -25,6 +43,7 @@ export default function ForgotPassword() {
     try {
       await api('/api/auth/forgot-password', { method: 'POST', body: { email } });
       setDigits(['', '', '', '', '', '']);
+      setResendIn(60);
       setStep('code');
     } catch (err) {
       setError(err.message);
@@ -35,24 +54,26 @@ export default function ForgotPassword() {
 
   function setDigit(i, value) {
     const clean = value.replace(/\D/g, '');
-    setDigits((prev) => {
-      const next = [...prev];
-      if (clean.length > 1) {
-        // A paste of the whole code fills the boxes in one go.
-        clean
-          .slice(0, 6)
-          .split('')
-          .forEach((c, j) => {
-            next[j] = c;
-          });
-        const target = Math.min(clean.length, 5);
-        if (boxRefs.current[target]) boxRefs.current[target].focus();
-      } else {
-        next[i] = clean;
-        if (clean && i < 5 && boxRefs.current[i + 1]) boxRefs.current[i + 1].focus();
-      }
-      return next;
-    });
+    const next = [...digits];
+    if (clean.length > 1) {
+      // A paste (or the keyboard's code suggestion) fills every box.
+      next.fill('');
+      clean
+        .slice(0, 6)
+        .split('')
+        .forEach((c, j) => {
+          next[j] = c;
+        });
+      const target = Math.min(clean.length, 5);
+      if (boxRefs.current[target]) boxRefs.current[target].focus();
+    } else {
+      next[i] = clean.slice(-1);
+      if (clean && i < 5 && boxRefs.current[i + 1]) boxRefs.current[i + 1].focus();
+    }
+    setDigits(next);
+    // The big-app behaviour: a complete code verifies itself.
+    const code = next.join('');
+    if (next.every((d) => d) && code.length === 6) verifyWith(code);
   }
 
   function onDigitKey(i, e) {
@@ -61,13 +82,9 @@ export default function ForgotPassword() {
     }
   }
 
-  async function verifyCode(e) {
-    e.preventDefault();
-    const code = digits.join('');
-    if (code.length !== 6) {
-      setError('Please type the full 6-digit code.');
-      return;
-    }
+  async function verifyWith(code) {
+    if (verifyingRef.current) return;
+    verifyingRef.current = true;
     setError('');
     setBusy(true);
     try {
@@ -79,9 +96,24 @@ export default function ForgotPassword() {
       setStep('password');
     } catch (err) {
       setError('That code is not right or has expired. Please check and try again.');
+      setShake(true);
+      setTimeout(() => setShake(false), 500);
+      setDigits(['', '', '', '', '', '']);
+      if (boxRefs.current[0]) boxRefs.current[0].focus();
     } finally {
       setBusy(false);
+      verifyingRef.current = false;
     }
+  }
+
+  function verifyCode(e) {
+    e.preventDefault();
+    const code = digits.join('');
+    if (code.length !== 6 || digits.some((d) => !d)) {
+      setError('Please type the full 6-digit code.');
+      return;
+    }
+    verifyWith(code);
   }
 
   async function setNewPassword(e) {
@@ -152,7 +184,7 @@ export default function ForgotPassword() {
               We sent a 6-digit code to <strong>{email}</strong>. Type it here — it works for
               10 minutes. (The same email also has a reset link, if you prefer that.)
             </p>
-            <div className="otp-row" role="group" aria-label="6-digit code">
+            <div className={`otp-row${shake ? ' shake' : ''}`} role="group" aria-label="6-digit code">
               {digits.map((d, i) => (
                 <input
                   key={i}
@@ -164,6 +196,7 @@ export default function ForgotPassword() {
                   autoComplete={i === 0 ? 'one-time-code' : 'off'}
                   maxLength={i === 0 ? 6 : 1}
                   value={d}
+                  disabled={busy}
                   onChange={(e) => setDigit(i, e.target.value)}
                   onKeyDown={(e) => onDigitKey(i, e)}
                   aria-label={`Digit ${i + 1}`}
@@ -175,9 +208,15 @@ export default function ForgotPassword() {
             </button>
             <p className="auth-sub">
               No code yet?{' '}
-              <button type="button" className="linklike" onClick={() => sendCode()} disabled={busy}>
-                Send again
-              </button>
+              {resendIn > 0 ? (
+                <span>
+                  Send again in 0:{String(resendIn).padStart(2, '0')}
+                </span>
+              ) : (
+                <button type="button" className="linklike" onClick={() => sendCode()} disabled={busy}>
+                  Send again
+                </button>
+              )}
             </p>
           </>
         )}
