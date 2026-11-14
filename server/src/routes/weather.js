@@ -197,6 +197,41 @@ const REVERSE_URL = () =>
   process.env.REVERSE_GEO_URL || 'https://api.bigdatacloud.net/data/reverse-geocode-client';
 const reverseCache = new Map(); // "lat,lon" (2dp) -> { at, data }
 
+async function fetchReverseJson(url, headers) {
+  const res = await fetch(url, { signal: AbortSignal.timeout(6000), headers });
+  if (!res.ok) {
+    const err = new Error(`Reverse geocoding provider answered ${res.status}`);
+    err.status = 502;
+    throw err;
+  }
+  return res.json();
+}
+
+// Both providers' shapes → one answer. BigDataCloud: city/locality at
+// the top level. Nominatim: everything under .address (city/town/
+// village/hamlet/county, state, country).
+function mapReverse(data, lat, lon) {
+  if (!data) return null;
+  const a = data.address || {};
+  return {
+    name:
+      data.city ||
+      data.locality ||
+      a.city ||
+      a.town ||
+      a.village ||
+      a.hamlet ||
+      a.county ||
+      data.principalSubdivision ||
+      a.state ||
+      '',
+    admin: data.principalSubdivision || a.state || '',
+    country: data.countryName || a.country || '',
+    latitude: lat,
+    longitude: lon,
+  };
+}
+
 router.get('/reverse', async (req, res) => {
   try {
     const lat = Number.parseFloat(req.query.lat);
@@ -207,15 +242,35 @@ router.get('/reverse', async (req, res) => {
     const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
     const hitCache = reverseCache.get(key);
     if (hitCache && Date.now() - hitCache.at < 30 * 60 * 1000) return res.json(hitCache.data);
-    const url = `${REVERSE_URL()}?latitude=${lat}&longitude=${lon}&localityLanguage=en`;
-    const data = await fetchJson(url);
-    const out = {
-      name: data.city || data.locality || data.principalSubdivision || '',
-      admin: data.principalSubdivision || '',
-      country: data.countryName || '',
-      latitude: lat,
-      longitude: lon,
-    };
+    let out = null;
+    if (process.env.REVERSE_GEO_URL) {
+      // Test/stub path: exactly one provider, BigDataCloud-shaped reply.
+      const data = await fetchJson(
+        `${REVERSE_URL()}?latitude=${lat}&longitude=${lon}&localityLanguage=en`
+      );
+      out = mapReverse(data, lat, lon);
+    } else {
+      // Production: BigDataCloud direct host first (their main host
+      // 307-redirects here anyway, and the redirect hop failed from the
+      // production network), OpenStreetMap Nominatim as the fallback —
+      // different networks, so one of them answers from anywhere.
+      try {
+        const data = await fetchReverseJson(
+          `https://api-bdc.io/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`
+        );
+        out = mapReverse(data, lat, lon);
+      } catch {
+        out = null;
+      }
+      if (!out || !out.name) {
+        const data = await fetchReverseJson(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`,
+          { 'User-Agent': 'ConnectX/1.0 (personal project weather widget)' }
+        );
+        out = mapReverse(data, lat, lon);
+      }
+    }
+    if (!out) throw new Error('Reverse geocoding returned an unexpected response');
     reverseCache.set(key, { at: Date.now(), data: out });
     return res.json(out);
   } catch (err) {
