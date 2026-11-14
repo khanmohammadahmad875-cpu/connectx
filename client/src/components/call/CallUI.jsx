@@ -73,12 +73,20 @@ export default function CallUI() {
 
   const peer = call.peer || {};
   const isVideo = call.callType === 'video';
+  // Blurred-photo backdrop (presentation only, item 12): the peer's photo,
+  // heavily blurred under a dark gradient; a plain gradient without a photo.
+  const backdrop = (
+    <div className="call-backdrop" aria-hidden="true">
+      {peer.profilePicture && <img src={peer.profilePicture} alt="" className="call-backdrop-img" />}
+    </div>
+  );
 
   if (status === 'incoming') {
     return (
       <div className="call-overlay">
         <div className="call-card">
-          <Avatar name={peer.username || '?'} src={peer.profilePicture} size={88} />
+          {backdrop}
+          <Avatar name={peer.username || '?'} src={peer.profilePicture} size={120} />
           <h3>{peer.username || 'Someone'}</h3>
           <p className="call-sub">{isVideo ? '📹 Incoming video call…' : '📞 Incoming voice call…'}</p>
           <div className="call-actions">
@@ -98,7 +106,8 @@ export default function CallUI() {
     return (
       <div className="call-overlay">
         <div className="call-card">
-          <Avatar name={peer.username || '?'} src={peer.profilePicture} size={88} />
+          {backdrop}
+          <Avatar name={peer.username || '?'} src={peer.profilePicture} size={120} />
           <h3>{peer.username || '…'}</h3>
           <p className="call-sub">{isVideo ? '📹 Video calling…' : '📞 Ringing…'}</p>
           {isVideo && <video ref={localVideoRef} className="call-preview" autoPlay muted playsInline />}
@@ -123,12 +132,15 @@ export default function CallUI() {
           </div>
         ) : (
           <>
+            {backdrop}
             <audio ref={remoteAudioRef} autoPlay />
-            <Avatar name={peer.username || '?'} src={peer.profilePicture} size={88} />
-            <h3>{peer.username || '…'}</h3>
+            <Avatar name={peer.username || '?'} src={peer.profilePicture} size={120} />
           </>
         )}
-        <p className="call-sub">{formatTimer(durationSec)}</p>
+        <div className="call-head">
+          <h3>{peer.username || '…'}</h3>
+          <p className="call-sub">{formatTimer(durationSec)}</p>
+        </div>
         <div className="call-actions">
           <button
             className={`call-btn control ${muted ? 'off' : ''}`}
