@@ -188,4 +188,41 @@ function handle(shapeFn) {
 router.get('/current', handle(currentShape));
 router.get('/forecast', handle(forecastShape));
 
+// Reverse geocoding: coordinates → the place name to SHOW the user, so
+// "current location" always reads as the real city (Maneri, Swabi,
+// Peshawar...) on the weather, Namaz and clock widgets. Provider:
+// BigDataCloud's free client API (no key needed). Base overridable by
+// env for the e2e suite: REVERSE_GEO_URL.
+const REVERSE_URL = () =>
+  process.env.REVERSE_GEO_URL || 'https://api.bigdatacloud.net/data/reverse-geocode-client';
+const reverseCache = new Map(); // "lat,lon" (2dp) -> { at, data }
+
+router.get('/reverse', async (req, res) => {
+  try {
+    const lat = Number.parseFloat(req.query.lat);
+    const lon = Number.parseFloat(req.query.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+      return res.status(400).json({ message: 'Provide valid ?lat= and ?lon= coordinates' });
+    }
+    const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+    const hitCache = reverseCache.get(key);
+    if (hitCache && Date.now() - hitCache.at < 30 * 60 * 1000) return res.json(hitCache.data);
+    const url = `${REVERSE_URL()}?latitude=${lat}&longitude=${lon}&localityLanguage=en`;
+    const data = await fetchJson(url);
+    const out = {
+      name: data.city || data.locality || data.principalSubdivision || '',
+      admin: data.principalSubdivision || '',
+      country: data.countryName || '',
+      latitude: lat,
+      longitude: lon,
+    };
+    reverseCache.set(key, { at: Date.now(), data: out });
+    return res.json(out);
+  } catch (err) {
+    return res
+      .status(502)
+      .json({ message: 'Location name service is unavailable right now. Please try again shortly.' });
+  }
+});
+
 module.exports = router;
