@@ -177,11 +177,28 @@ function makePrayerStub() {
   });
 }
 
+// Stub reverse-geocoding provider (BigDataCloud shape) on 5079.
+function makeReverseStub() {
+  return http.createServer((req, res) => {
+    res.setHeader('content-type', 'application/json');
+    res.end(
+      JSON.stringify({
+        city: 'Maneri',
+        locality: 'Maneri Bala',
+        principalSubdivision: 'Khyber Pakhtunkhwa',
+        countryName: 'Pakistan',
+      })
+    );
+  });
+}
+
 async function main() {
   const weatherStub = makeWeatherStub();
   await new Promise((resolve) => weatherStub.listen(5077, resolve));
   const prayerStub = makePrayerStub();
   await new Promise((resolve) => prayerStub.listen(5078, resolve));
+  const reverseStub = makeReverseStub();
+  await new Promise((resolve) => reverseStub.listen(5079, resolve));
   console.log('[test] Starting ConnectX server on port', PORT, '...');
   const server = spawn('node', ['src/server.js'], {
     cwd: path.join(__dirname, '..'),
@@ -199,6 +216,7 @@ async function main() {
       OPEN_METEO_GEO_URL: 'http://localhost:5077/geo',
       OPEN_METEO_API_URL: 'http://localhost:5077/forecast',
       ALADHAN_URL: 'http://localhost:5078',
+      REVERSE_GEO_URL: 'http://localhost:5079/reverse',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -813,6 +831,15 @@ async function main() {
     const prShafi = await req('GET', '/api/prayer-times?lat=33.6&lon=73.1&school=0', { token: A.token });
     check('prayer: Shafi juristic method moves Asr earlier (14:51)',
       prShafi.status === 200 && prShafi.data.timings.Asr === '14:51');
+
+    // --- Reverse geocoding: coords → the city name shown to the user -----
+    const rvAnon = await req('GET', '/api/weather/reverse?lat=34.1&lon=72.47');
+    check('reverse: unauthenticated request is rejected (401)', rvAnon.status === 401);
+    const rvMissing = await req('GET', '/api/weather/reverse', { token: A.token });
+    check('reverse: missing lat/lon is rejected (400)', rvMissing.status === 400);
+    const rvOk = await req('GET', '/api/weather/reverse?lat=34.1&lon=72.47', { token: A.token });
+    check('reverse: coordinates resolve to the real city name (Maneri, Pakistan)',
+      rvOk.status === 200 && rvOk.data.name === 'Maneri' && rvOk.data.country === 'Pakistan');
 
 
     // --- v3.0 Phase B: voice messages (Module 5) -------------------------
