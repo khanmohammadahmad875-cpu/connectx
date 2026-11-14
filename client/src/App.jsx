@@ -7,6 +7,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Chat from './pages/Chat';
 import Home from './pages/Home';
+import Reels from './pages/Reels';
 import Weather from './pages/Weather';
 import Business from './pages/Business';
 import Calendar from './pages/Calendar';
@@ -73,6 +74,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Chat />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reels"
+              element={
+                <ProtectedRoute>
+                  <Reels />
                 </ProtectedRoute>
               }
             />
