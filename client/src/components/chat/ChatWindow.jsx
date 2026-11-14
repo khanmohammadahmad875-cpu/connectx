@@ -17,6 +17,16 @@ import { timeInZone } from '../../utils/timezones';
 import WeatherScene from '../WeatherScene';
 import { useLiveWeather } from '../../hooks/useLiveWeather';
 
+// Phone pickers can hand back a video with an EMPTY file.type; the message
+// metadata then falls back to the MIME type implied by the extension (the
+// server classifies the upload itself the same way).
+const VIDEO_MIME_BY_EXT = { mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime' };
+function pickedMime(file) {
+  if (file.type) return file.type;
+  const ext = (file.name || '').split('.').pop().toLowerCase();
+  return VIDEO_MIME_BY_EXT[ext] || '';
+}
+
 // Best-effort video duration (seconds) for message metadata (item 10).
 function measureVideoDuration(url) {
   return new Promise((resolve) => {
@@ -142,7 +152,7 @@ export default function ChatWindow({
           content: '',
           messageType: 'video',
           attachmentUrl: result.url,
-          videoMeta: { duration, size: file.size, mime: file.type },
+          videoMeta: { duration, size: file.size, mime: pickedMime(file) },
         });
       } else {
         await onSend({
@@ -351,7 +361,7 @@ export default function ChatWindow({
             ref={fileRef}
             type="file"
             hidden
-            accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,.pdf,.txt,.doc,.docx"
+            accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.pdf,.txt,.doc,.docx"
             onChange={handleFile}
           />
           {!isChannel && (

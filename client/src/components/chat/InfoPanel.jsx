@@ -152,13 +152,14 @@ export default function InfoPanel({ conversation, me, onClose, onChanged, onLeft
               ref={groupImageRef}
               type="file"
               hidden
-              accept="image/jpeg,image/png,image/gif,image/webp"
+              accept="image/*"
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 e.target.value = '';
                 if (!file) return;
-                // Images go through the crop dialog first (item 4).
-                if (file.type.startsWith('image/')) setCropFile(file);
+                // Images go through the crop dialog first (item 4). An empty
+                // type from a phone picker still counts as an image here.
+                if (!file.type || file.type.startsWith('image/')) setCropFile(file);
               }}
             />
           </>

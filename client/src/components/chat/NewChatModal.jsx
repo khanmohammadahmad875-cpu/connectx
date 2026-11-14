@@ -3,6 +3,47 @@ import { api, uploadFile } from '../../services/api';
 import Avatar from '../Avatar';
 import ImageCropper from '../ImageCropper';
 
+const APP_URL = 'https://connectx-production-cd3ef1ec.up.railway.app';
+
+// Device contacts for discovery, best source first:
+//   1. the native bridge a future ConnectX APK will inject
+//      (window.ConnectXContacts.getContacts() → Promise of a JSON string:
+//      [{ name, phones: [], emails: [] }]);
+//   2. the browser Contact Picker API (navigator.contacts.select).
+// Returns null when NEITHER source exists. Contacts live in component state
+// only — they are never written to the server or to localStorage; the
+// discover endpoint returns public profiles and stores nothing.
+async function readDeviceContacts() {
+  try {
+    if (window.ConnectXContacts && typeof window.ConnectXContacts.getContacts === 'function') {
+      const raw = await window.ConnectXContacts.getContacts();
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (Array.isArray(parsed)) {
+        return parsed.map((c) => ({
+          name: c.name || '',
+          emails: Array.isArray(c.emails) ? c.emails : [],
+          phones: Array.isArray(c.phones) ? c.phones : [],
+        }));
+      }
+    }
+  } catch {
+    /* bridge failed — fall through to the next source */
+  }
+  try {
+    if (navigator.contacts && typeof navigator.contacts.select === 'function') {
+      const picked = await navigator.contacts.select(['name', 'email', 'tel'], { multiple: true });
+      return (picked || []).map((c) => ({
+        name: (c.name && c.name[0]) || '',
+        emails: c.email || [],
+        phones: c.tel || [],
+      }));
+    }
+  } catch {
+    return []; // the picker was dismissed — treat as "no contacts picked"
+  }
+  return null;
+}
+
 export default function NewChatModal({ onClose, onCreated, initialMode = 'private' }) {
   const [mode, setMode] = useState(initialMode); // 'private' | 'group' | 'channel' | 'community'
   const [query, setQuery] = useState('');
@@ -19,6 +60,11 @@ export default function NewChatModal({ onClose, onCreated, initialMode = 'privat
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const imageRef = useRef(null);
+  // Contacts discovery: idle | working | done | unavailable.
+  const [syncState, setSyncState] = useState('idle');
+  const [matchedUsers, setMatchedUsers] = useState([]);
+  const [inviteContacts, setInviteContacts] = useState([]);
+  const [inviteNote, setInviteNote] = useState('');
 
   // Community mode: pick from my existing groups to link.
   useEffect(() => {
@@ -45,6 +91,68 @@ export default function NewChatModal({ onClose, onCreated, initialMode = 'privat
     }, 250);
     return () => clearTimeout(t);
   }, [query]);
+
+  // Sync device contacts and split them into "on ConnectX" (matched users)
+  // and "not yet" (invite list). Discovery runs per contact, in chunks, so
+  // every saved contact is attributed exactly; the endpoint answers with
+  // public profiles only and persists nothing.
+  async function syncContacts() {
+    setSyncState('working');
+    setInviteNote('');
+    const contacts = await readDeviceContacts();
+    if (contacts === null) {
+      setSyncState('unavailable');
+      return;
+    }
+    const usable = contacts.filter(
+      (c) => (c.emails && c.emails.length > 0) || (c.phones && c.phones.length > 0)
+    );
+    const matchedById = new Map();
+    const unmatched = [];
+    for (let i = 0; i < usable.length; i += 20) {
+      const chunk = usable.slice(i, i + 20);
+      const results = await Promise.all(
+        chunk.map(async (c) => {
+          try {
+            const data = await api('/api/users/discover', {
+              method: 'POST',
+              body: { emails: c.emails, phones: c.phones },
+            });
+            return data.users || [];
+          } catch {
+            return null; // a failed lookup skips the contact silently
+          }
+        })
+      );
+      chunk.forEach((c, j) => {
+        const users = results[j];
+        if (users === null) return;
+        if (users.length) users.forEach((u) => matchedById.set(u._id, u));
+        else unmatched.push(c);
+      });
+    }
+    setMatchedUsers([...matchedById.values()]);
+    setInviteContacts(unmatched);
+    setSyncState('done');
+  }
+
+  async function inviteContact(contact) {
+    const text = `Chat with me on ConnectX — messages, calls, status and more: ${APP_URL}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'ConnectX', text });
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setInviteNote(`Invite copied — send it to ${contact.name || 'your contact'}!`);
+    } catch {
+      setInviteNote(`Share this link: ${APP_URL}`);
+    }
+  }
 
   async function startPrivate(user) {
     setBusy(true);
@@ -88,7 +196,8 @@ export default function NewChatModal({ onClose, onCreated, initialMode = 'privat
     e.target.value = '';
     if (!file) return;
     // Images are cropped first (item 4); anything else keeps the old path.
-    if (file.type.startsWith('image/')) setCropFile(file);
+    // An empty type from a phone picker still counts as an image here.
+    if (!file.type || file.type.startsWith('image/')) setCropFile(file);
     else uploadGroupImage(file);
   }
 
@@ -242,6 +351,66 @@ export default function NewChatModal({ onClose, onCreated, initialMode = 'privat
               ))}
               {query && results.length === 0 && <p className="empty-note">No people found.</p>}
             </div>
+            {mode === 'private' && (
+              <div className="contacts-sync">
+                <h5 className="info-section">From your phone contacts</h5>
+                {syncState === 'unavailable' ? (
+                  <p className="info-sub">
+                    Contact sync works in the ConnectX Android app — open ConnectX there to find
+                    friends from your phone contacts.
+                  </p>
+                ) : (
+                  <>
+                    <button
+                      className="btn ghost"
+                      onClick={syncContacts}
+                      disabled={syncState === 'working'}
+                    >
+                      {syncState === 'working' ? 'Syncing…' : '🔄 Sync contacts'}
+                    </button>
+                    {inviteNote && <p className="ok-note">{inviteNote}</p>}
+                    {syncState === 'done' && matchedUsers.length === 0 && inviteContacts.length === 0 && (
+                      <p className="empty-note">No contacts with an email or phone number were found.</p>
+                    )}
+                    {matchedUsers.length > 0 && (
+                      <div className="user-results">
+                        {matchedUsers.map((u) => (
+                          <button
+                            key={u._id}
+                            className="user-row"
+                            disabled={busy}
+                            onClick={() => startPrivate(u)}
+                          >
+                            <Avatar name={u.username} src={u.profilePicture} online={u.status === 'online'} size={36} />
+                            <span>{u.username}</span>
+                            <span className="picked">On ConnectX · Chat</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {inviteContacts.length > 0 && (
+                      <>
+                        <p className="info-sub">Not on ConnectX yet:</p>
+                        <div className="user-results">
+                          {inviteContacts.map((c, i) => (
+                            <div key={i} className="user-row static-row">
+                              <Avatar name={c.name || c.emails[0] || c.phones[0] || '?'} size={36} />
+                              <span className="conv-main">
+                                <span>{c.name || 'Unknown contact'}</span>
+                                <span className="info-sub">{c.emails[0] || c.phones[0] || ''}</span>
+                              </span>
+                              <button className="mini-btn" onClick={() => inviteContact(c)}>
+                                Invite
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
             {mode === 'group' && (
               <button
                 className="btn primary"
@@ -274,7 +443,7 @@ export default function NewChatModal({ onClose, onCreated, initialMode = 'privat
                 ref={imageRef}
                 type="file"
                 hidden
-                accept="image/jpeg,image/png,image/gif,image/webp"
+                accept="image/*"
                 onChange={pickGroupImage}
               />
               <input
@@ -315,7 +484,7 @@ export default function NewChatModal({ onClose, onCreated, initialMode = 'privat
                 ref={imageRef}
                 type="file"
                 hidden
-                accept="image/jpeg,image/png,image/gif,image/webp"
+                accept="image/*"
                 onChange={pickGroupImage}
               />
               <input
