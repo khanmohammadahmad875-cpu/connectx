@@ -96,6 +96,7 @@ function initSocket(httpServer, clientUrl) {
           replyTo: payload.replyTo || null,
           clientMessageId: payload.clientMessageId || null,
           audioMeta: payload.audioMeta || null,
+          videoMeta: payload.videoMeta || null,
           poll: payload.poll || null,
           location: payload.location || null,
           unlocked: socketUnlocked(),
