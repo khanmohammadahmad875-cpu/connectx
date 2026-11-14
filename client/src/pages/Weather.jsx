@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { usePrefs } from '../context/PreferencesContext';
 import { formatDayLabel, formatHourLabel, weatherEmoji } from '../utils/weather';
+import { resolveCityName } from '../utils/geo';
 
 // Weather page (module 26). Data comes from our own /api/weather endpoints
 // (Open-Meteo, no key). Cities the user saves live in their preferences.
@@ -60,10 +61,10 @@ export default function Weather() {
     setBusy(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        load({
-          lat: String(pos.coords.latitude),
-          lon: String(pos.coords.longitude),
-          name: 'My location',
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        resolveCityName(lat, lon).then((name) => {
+          load({ lat: String(lat), lon: String(lon), name: name || 'My location' });
         });
       },
       () => {
