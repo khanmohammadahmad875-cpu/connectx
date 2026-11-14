@@ -265,13 +265,19 @@ const forgotSchema = z.object({ email: z.string().trim().email() });
 router.post('/forgot-password', authLimiter, validate(forgotSchema), async (req, res, next) => {
   try {
     const user = await User.findOne({ email: req.body.email.toLowerCase() }).select(
-      '+resetPasswordTokenHash +resetPasswordExpires'
+      '+resetPasswordTokenHash +resetPasswordExpires +resetOtpHash +resetOtpExpires +resetOtpAttempts'
     );
     // Always answer the same way so the endpoint cannot be used to probe emails.
     if (user) {
       const rawToken = crypto.randomBytes(32).toString('hex');
       user.resetPasswordTokenHash = hashToken(rawToken);
       user.resetPasswordExpires = new Date(Date.now() + 30 * 60 * 1000);
+      // OTP scene: the same email also carries a 6-digit code the user can
+      // type into the app instead of opening the link (easier on a phone).
+      const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+      user.resetOtpHash = hashToken(code);
+      user.resetOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+      user.resetOtpAttempts = 0;
       await user.save();
 
       const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password?token=${rawToken}`;
@@ -289,14 +295,57 @@ router.post('/forgot-password', authLimiter, validate(forgotSchema), async (req,
           from: process.env.SMTP_FROM || 'ConnectX <no-reply@connectx.local>',
           to: user.email,
           subject: 'ConnectX password reset',
-          text: `Reset your password within 30 minutes: ${resetUrl}`,
+          text:
+            `Your ConnectX reset code is ${code} — it works for 10 minutes.\n` +
+            `Type it in the app, or reset with this link within 30 minutes: ${resetUrl}`,
         });
       } else {
         // Development fallback: no SMTP configured, print the link on the server console.
         console.log(`[auth] Password reset link for ${user.email}: ${resetUrl}`);
+        console.log(`[auth] Password reset code for ${user.email}: ${code}`);
       }
     }
     return res.json({ message: 'If that email is registered, a reset link has been sent' });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+const otpSchema = z.object({
+  email: z.string().trim().email(),
+  code: z.string().trim().regex(/^\d{6}$/),
+});
+
+// OTP scene, step 2: exchange the emailed 6-digit code for a one-time
+// reset token (10 minutes), which the existing /reset-password consumes.
+// Wrong codes are counted; the code is destroyed after 5 failures.
+router.post('/verify-reset-otp', authLimiter, validate(otpSchema), async (req, res, next) => {
+  try {
+    const fail = () => res.status(400).json({ message: 'Invalid or expired code' });
+    const user = await User.findOne({ email: req.body.email.toLowerCase() }).select(
+      '+resetOtpHash +resetOtpExpires +resetOtpAttempts +resetPasswordTokenHash +resetPasswordExpires'
+    );
+    if (!user || !user.resetOtpHash || !user.resetOtpExpires || user.resetOtpExpires < new Date()) {
+      return fail();
+    }
+    if (hashToken(req.body.code) !== user.resetOtpHash) {
+      user.resetOtpAttempts = (user.resetOtpAttempts || 0) + 1;
+      if (user.resetOtpAttempts >= 5) {
+        user.resetOtpHash = undefined;
+        user.resetOtpExpires = undefined;
+        user.resetOtpAttempts = 0;
+      }
+      await user.save();
+      return fail();
+    }
+    user.resetOtpHash = undefined;
+    user.resetOtpExpires = undefined;
+    user.resetOtpAttempts = 0;
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordTokenHash = hashToken(rawToken);
+    user.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+    return res.json({ resetToken: rawToken });
   } catch (err) {
     return next(err);
   }
