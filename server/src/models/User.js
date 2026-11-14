@@ -120,7 +120,15 @@ const userSchema = new mongoose.Schema(
       liveWeatherBackground: { type: Boolean, default: true },
       // Accessibility: chat text size + decorative animations master switch.
       fontSize: { type: String, enum: ['small', 'medium', 'large'], default: 'medium' },
+      fontFamily: {
+        type: String,
+        enum: ['default', 'classic', 'modern', 'rounded', 'elegant', 'mono'],
+        default: 'default',
+      },
       animationsEnabled: { type: Boolean, default: true },
+      // Easy Mode: bigger text, bigger buttons, simpler surfaces — for
+      // elderly and low-literacy users.
+      easyMode: { type: Boolean, default: false },
       // Notifications: show message previews in the notifications list, and
       // play the in-app alert sound for new messages.
       notificationPreviews: { type: Boolean, default: true },
