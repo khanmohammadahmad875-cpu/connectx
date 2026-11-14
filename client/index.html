@@ -7,6 +7,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0b7a55" />
     <title>ConnectX — Secure Messaging</title>
+    <script>
+      // Splash timing starts here so main.jsx can hold the boot splash
+      // for its full first showing before React takes over (second one).
+      window.__bootStart = performance.now();
+    </script>
     <style>
       /* Boot splash: painted instantly, before the JS bundle downloads,
          so opening the app never shows a blank white page. The React
