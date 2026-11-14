@@ -211,7 +211,7 @@ export default function ChatWindow({
     <section className="chat-window">
       {wpLayer && <div className="wallpaper-layer" style={wpLayer} aria-hidden="true" />}
       {showScene && (
-        <WeatherScene scene={liveWeather.scene} className="wallpaper-layer scene-layer" />
+        <WeatherScene scene={liveWeather.scene} night={!liveWeather.isDay} className="wallpaper-layer scene-layer" />
       )}
       <header className="chat-header">
         <button className="icon-btn back-btn" onClick={onBack}>←</button>
