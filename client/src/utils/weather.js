@@ -1,6 +1,21 @@
 // Weather display helpers (module 26): WMO code -> emoji + hour/day labels.
 // Mirrors the condition text the server returns from Open-Meteo codes.
 
+// Map an Open-Meteo WMO weather code to one of the animated WeatherScene
+// scenes. Codes: 0 clear · 1–3 mainly clear/partly/overcast · 45/48 fog ·
+// 51–57 drizzle · 61–67 rain · 71–77 snow grains/fall · 80–82 showers ·
+// 85/86 snow showers · 95 thunderstorm · 96/99 thunderstorm with hail.
+export function weatherSceneForCode(code, isDay = true) {
+  const c = Number(code);
+  if (!Number.isFinite(c)) return isDay ? 'clear-day' : 'clear-night';
+  if (c >= 95) return 'thunder';
+  if (c === 45 || c === 48) return 'fog';
+  if ((c >= 71 && c <= 77) || c === 85 || c === 86) return 'snow';
+  if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82)) return 'rain';
+  if (c === 2 || c === 3) return 'cloudy';
+  return isDay ? 'clear-day' : 'clear-night'; // 0, 1 and anything unknown
+}
+
 export function weatherEmoji(code) {
   if (code === 0) return '☀️';
   if (code === 1) return '🌤️';
