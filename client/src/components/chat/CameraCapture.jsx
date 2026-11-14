@@ -7,10 +7,21 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 export default function CameraCapture({ onPhoto, onClose }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const flashRef = useRef(false);
+  const noteTimer = useRef(null);
   const [facing, setFacing] = useState('user'); // 'user' = front, 'environment' = back
   const [shot, setShot] = useState(null); // { url, blob }
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
+  const [flash, setFlash] = useState(false); // device torch (back camera)
+  const [torchOk, setTorchOk] = useState(false);
+  const [note, setNote] = useState('');
+
+  function showNote(text) {
+    setNote(text);
+    if (noteTimer.current) clearTimeout(noteTimer.current);
+    noteTimer.current = setTimeout(() => setNote(''), 2600);
+  }
 
   const stop = useCallback(() => {
     if (streamRef.current) {
@@ -34,12 +45,50 @@ export default function CameraCapture({ onPhoto, onClose }) {
         });
         streamRef.current = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
+        // Flash (torch) lives on the video track; most front cameras and
+        // some browsers do not offer it, so detect it per stream.
+        const track = stream.getVideoTracks()[0];
+        const caps = (track && track.getCapabilities && track.getCapabilities()) || {};
+        const hasTorch = !!caps.torch;
+        setTorchOk(hasTorch);
+        if (!hasTorch) {
+          flashRef.current = false;
+          setFlash(false);
+        } else if (flashRef.current) {
+          track
+            .applyConstraints({ advanced: [{ torch: true }] })
+            .catch(() => {
+              flashRef.current = false;
+              setFlash(false);
+            });
+        }
       } catch (err) {
         setError('Could not open the camera. Please check the camera permission.');
       }
     },
     [stop]
   );
+
+  async function toggleFlash() {
+    if (!torchOk) {
+      showNote(
+        facing === 'user'
+          ? 'Flash light works with the back camera on this device.'
+          : 'Flash light is not available on this device.'
+      );
+      return;
+    }
+    const track = streamRef.current && streamRef.current.getVideoTracks()[0];
+    if (!track) return;
+    const next = !flashRef.current;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: next }] });
+      flashRef.current = next;
+      setFlash(next);
+    } catch (err) {
+      showNote('Flash light could not be switched on.');
+    }
+  }
 
   // Run the viewfinder whenever there is no captured shot to preview.
   useEffect(() => {
@@ -110,6 +159,7 @@ export default function CameraCapture({ onPhoto, onClose }) {
               muted
             />
             {error && <p className="cam-error">{error}</p>}
+            {note && <p className="cam-note">{note}</p>}
             <p className="cam-hint">{facing === 'user' ? '📷 Front camera' : '📷 Back camera'}</p>
             <div className="cam-actions">
               <button
@@ -120,7 +170,13 @@ export default function CameraCapture({ onPhoto, onClose }) {
                 🔄
               </button>
               <button className="cam-shutter" onClick={capture} title="Take photo" aria-label="Take photo" />
-              <span className="cam-flip ghost-slot" aria-hidden="true" />
+              <button
+                className={`cam-flip cam-flash ${flash ? 'on' : ''}`}
+                onClick={toggleFlash}
+                title={flash ? 'Flash light: On' : 'Flash light: Off'}
+              >
+                ⚡<span className="cam-flash-state">{flash ? 'On' : 'Off'}</span>
+              </button>
             </div>
           </>
         )}
