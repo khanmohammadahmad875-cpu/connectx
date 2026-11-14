@@ -37,10 +37,34 @@ export function PreferencesProvider({ children }) {
     };
   }, [userId]);
 
-  // Apply the chosen accent color app-wide via the theme CSS variables.
+  // Apply the theme (light/dark/system) app-wide. The CSS :root palette is
+  // the light WhatsApp theme; [data-theme='dark'] carries the dark palette.
   useEffect(() => {
     const root = document.documentElement;
-    if (!prefs?.accentColor) return undefined;
+    const choice = prefs?.theme || 'light';
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      root.dataset.theme = choice === 'system' ? (mq.matches ? 'dark' : 'light') : choice;
+    };
+    apply();
+    if (choice === 'system') {
+      mq.addEventListener('change', apply);
+      return () => mq.removeEventListener('change', apply);
+    }
+    return undefined;
+  }, [prefs?.theme]);
+
+  // Apply the chosen accent color app-wide via the theme CSS variables.
+  // The legacy default '#2f7bff' means "never explicitly chosen": leave the
+  // variables unset so each theme's own default applies (WhatsApp green in
+  // light, blue in dark).
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!prefs?.accentColor || prefs.accentColor === '#2f7bff') {
+      root.style.removeProperty('--accent');
+      root.style.removeProperty('--accent-dark');
+      return undefined;
+    }
     const accent = ACCENTS.find((a) => a.value === prefs.accentColor);
     root.style.setProperty('--accent', prefs.accentColor);
     root.style.setProperty('--accent-dark', accent ? accent.dark : prefs.accentColor);
@@ -49,6 +73,15 @@ export function PreferencesProvider({ children }) {
       root.style.removeProperty('--accent-dark');
     };
   }, [prefs?.accentColor]);
+
+  // Chat font size (accessibility) + the app-wide Animations on/off switch.
+  useEffect(() => {
+    const root = document.documentElement;
+    const sizes = { small: '13.5px', medium: '14.5px', large: '16.5px' };
+    root.style.setProperty('--msg-font-size', sizes[prefs?.fontSize] || sizes.medium);
+    if (prefs?.animationsEnabled === false) root.dataset.animations = 'off';
+    else delete root.dataset.animations;
+  }, [prefs?.fontSize, prefs?.animationsEnabled]);
 
   const save = useCallback(async (partial) => {
     const data = await api('/api/users/me/preferences', { method: 'PATCH', body: partial });
