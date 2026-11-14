@@ -23,6 +23,7 @@ export default function CallUI() {
     endCall,
     toggleMute,
     toggleCamera,
+    switchCamera,
   } = useCall();
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -112,6 +113,15 @@ export default function CallUI() {
           <p className="call-sub">{isVideo ? '📹 Video calling…' : '📞 Ringing…'}</p>
           {isVideo && <video ref={localVideoRef} className="call-preview" autoPlay muted playsInline />}
           <div className="call-actions">
+            {isVideo && (
+              <button
+                className="call-btn control"
+                onClick={switchCamera}
+                title="Switch camera (front / back)"
+              >
+                🔄
+              </button>
+            )}
             <button className="call-btn reject" onClick={endCall} title="Cancel call">
               ✕
             </button>
@@ -156,6 +166,15 @@ export default function CallUI() {
               title={cameraOff ? 'Turn camera on' : 'Turn camera off'}
             >
               {cameraOff ? '🚫📷' : '📷'}
+            </button>
+          )}
+          {isVideo && (
+            <button
+              className="call-btn control"
+              onClick={switchCamera}
+              title="Switch camera (front / back)"
+            >
+              🔄
             </button>
           )}
           {speakerSupported && (
