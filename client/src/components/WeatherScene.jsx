@@ -17,12 +17,16 @@ const SCENE_GRADIENTS = {
 };
 
 function makeClouds(count, w, h, dark) {
+  // Gentle by design: small, soft, mostly-transparent clouds that stay
+  // in the top band of the sky. (The first version's clouds were up to
+  // ~270px wide at 85% opacity — giant white blobs that smeared across
+  // the whole app and washed out the text above them.)
   return Array.from({ length: count }, () => ({
     x: Math.random() * w,
-    y: Math.random() * h * 0.45,
-    r: 24 + Math.random() * 55,
+    y: Math.random() * h * 0.38,
+    r: 15 + Math.random() * 26,
     speed: 3 + Math.random() * 8,
-    alpha: dark ? 0.35 + Math.random() * 0.3 : 0.5 + Math.random() * 0.35,
+    alpha: dark ? 0.14 + Math.random() * 0.12 : 0.16 + Math.random() * 0.14,
   }));
 }
 
@@ -66,8 +70,8 @@ export default function WeatherScene({ scene, className = '' }) {
     let nextFlash = 2500 + Math.random() * 5000;
 
     function seed() {
-      clouds = makeClouds(scene === 'clear-day' || scene === 'clear-night' ? 5 : 9, W, H, dark);
-      backClouds = makeClouds(6, W, H, dark);
+      clouds = makeClouds(scene === 'clear-day' || scene === 'clear-night' ? 4 : 6, W, H, dark);
+      backClouds = makeClouds(4, W, H, dark);
       drops = Array.from({ length: 90 }, () => ({
         x: Math.random() * W, y: Math.random() * H, len: 10 + Math.random() * 14, speed: 380 + Math.random() * 260,
       }));
@@ -144,7 +148,7 @@ export default function WeatherScene({ scene, className = '' }) {
         ctx.fill();
       }
 
-      const backColor = dark ? 'rgba(38,50,72,0.5)' : 'rgba(255,255,255,0.35)';
+      const backColor = dark ? 'rgba(38,50,72,0.30)' : 'rgba(255,255,255,0.16)';
       for (const c of backClouds) cloudShape(c, backColor);
       const cloudColor = (a) => (dark ? `rgba(30,40,60,${a})` : `rgba(255,255,255,${a})`);
       for (const c of clouds) cloudShape(c, cloudColor(c.alpha));
