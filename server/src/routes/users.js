@@ -4,6 +4,7 @@ const User = require('../models/User');
 const ConversationMember = require('../models/ConversationMember');
 const { requireAuth } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
+const { REEL_INTERESTS } = require('../utils/interests');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -68,6 +69,7 @@ function serializePreferences(user) {
     notificationPreviews: p.notificationPreviews ?? true,
     soundAlerts: p.soundAlerts ?? true,
     defaultDisappearingDuration: p.defaultDisappearingDuration ?? 0,
+    reelInterests: Array.isArray(p.reelInterests) ? p.reelInterests : [],
   };
 }
 
@@ -119,6 +121,14 @@ const preferencesSchema = z.object({
   notificationPreviews: z.boolean().optional(),
   soundAlerts: z.boolean().optional(),
   defaultDisappearingDuration: z.number().int().min(0).max(2592000).optional(),
+  // Reels interests: every value must come from the shared interest list.
+  reelInterests: z
+    .array(z.string().max(40))
+    .max(REEL_INTERESTS.length)
+    .refine((arr) => arr.every((v) => REEL_INTERESTS.includes(v)), {
+      message: 'reelInterests contains an unknown interest',
+    })
+    .optional(),
 });
 
 router.patch('/me/preferences', validate(preferencesSchema), async (req, res, next) => {
@@ -337,6 +347,92 @@ router.get('/search', async (req, res, next) => {
     }).limit(20);
     const visible = users.filter((u) => !blockedIds.includes(u._id.toString()));
     return res.json({ users: visible.map((u) => publicProfile(u, req.user)) });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// --- Contacts discovery (WhatsApp-style) -------------------------------------
+//
+// POST /api/users/discover { emails, phones } — the client sends identifiers
+// from the device's own address book; the server answers which of them belong
+// to ConnectX accounts, as PUBLIC profiles only:
+//   - email matches the account email (normalized lowercase);
+//   - phone matches the contact-card `phone` field ONLY when that field's
+//     visibility is 'everyone' — a 'contacts'/'nobody' phone is never used
+//     for discovery;
+//   - the caller never matches themselves, deactivated accounts are skipped,
+//     and users the caller blocked are not returned.
+// The response NEVER contains anyone's email, phone or contact-card data:
+// publicProfile() strips all of it. The identifiers are used for the lookup
+// only and are not stored anywhere.
+
+const discoverSchema = z.object({
+  emails: z.array(z.string().max(320)).max(1000).optional().default([]),
+  phones: z.array(z.string().max(40)).max(1000).optional().default([]),
+});
+
+function digitsOnly(s) {
+  return (s || '').replace(/\D/g, '');
+}
+
+// Country-code-insensitive comparison: drop the international "00" prefix
+// and a single trunk "0" (e.g. 0300… in Pakistan, 079… in the UK), then
+// compare by suffix so "+92 300 1234567", "03001234567" and "3001234567"
+// all match each other. A minimum of 7 digits guards against false hits.
+function canonicalPhone(s) {
+  let d = digitsOnly(s);
+  if (d.startsWith('00')) d = d.slice(2);
+  if (d.length > 10 && d.startsWith('0')) d = d.slice(1);
+  return d;
+}
+
+function phonesMatch(a, b) {
+  const x = canonicalPhone(a);
+  const y = canonicalPhone(b);
+  if (x.length < 7 || y.length < 7) return false;
+  return x.endsWith(y) || y.endsWith(x);
+}
+
+router.post('/discover', validate(discoverSchema), async (req, res, next) => {
+  try {
+    const blockedIds = new Set((req.user.blockedUsers || []).map((id) => id.toString()));
+    const emails = [
+      ...new Set(
+        (req.body.emails || [])
+          .map((e) => (e || '').trim().toLowerCase())
+          .filter((e) => e.includes('@'))
+      ),
+    ];
+    const phones = (req.body.phones || []).filter((p) => digitsOnly(p).length >= 7);
+
+    const matched = new Map();
+    if (emails.length) {
+      const byEmail = await User.find({
+        email: { $in: emails },
+        _id: { $ne: req.user._id },
+        isDeactivated: false,
+      });
+      for (const u of byEmail) matched.set(u._id.toString(), u);
+    }
+    if (phones.length) {
+      // Only publicly-shared phone numbers take part in discovery.
+      const candidates = await User.find({
+        _id: { $ne: req.user._id },
+        isDeactivated: false,
+        'contactVisibility.phone': 'everyone',
+      });
+      for (const u of candidates) {
+        const cardPhone = u.contactCard?.phone;
+        if (!cardPhone) continue;
+        if (phones.some((p) => phonesMatch(p, cardPhone))) {
+          matched.set(u._id.toString(), u);
+        }
+      }
+    }
+
+    const users = [...matched.values()].filter((u) => !blockedIds.has(u._id.toString()));
+    return res.json({ users: users.map((u) => publicProfile(u, req.user)) });
   } catch (err) {
     return next(err);
   }
@@ -588,7 +684,7 @@ router.post('/me/import', express.json({ limit: '5mb' }), async (req, res, next)
       for (const key of ['wallpaper', 'customWallpaperUrl', 'wallpaperDim', 'accentColor', 'clockFormat24h', 'theme', 'liveWeatherBackground', 'fontSize', 'animationsEnabled', 'notificationPreviews', 'soundAlerts', 'defaultDisappearingDuration']) {
         if (data.preferences[key] !== undefined) user.preferences[key] = data.preferences[key];
       }
-      for (const key of ['conversationWallpapers', 'weatherCities', 'clockCities']) {
+      for (const key of ['conversationWallpapers', 'weatherCities', 'clockCities', 'reelInterests']) {
         if (Array.isArray(data.preferences[key]) && data.preferences[key].length) {
           user.preferences[key] = data.preferences[key];
         }

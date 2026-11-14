@@ -1,7 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const { requireAuth } = require('../middleware/auth');
-const { upload, ALLOWED, FILE_MAX_BYTES } = require('../middleware/upload');
+const { upload, FILE_MAX_BYTES, kindForFile } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -11,7 +11,10 @@ const router = express.Router();
 router.post('/', requireAuth, upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No file received' });
-    const kind = ALLOWED.get(req.file.mimetype) || 'file';
+    // Kind by declared MIME type, falling back to the file extension for
+    // uploads that arrived typeless (application/octet-stream) from phone
+    // pickers — so a .mp4 still gets the video size cap and messageType.
+    const kind = kindForFile(req.file);
     // Per-kind size cap: only video may exceed the standard 10 MB limit
     // (video itself is capped at 64 MB by multer's ceiling).
     if (kind !== 'video' && req.file.size > FILE_MAX_BYTES) {
