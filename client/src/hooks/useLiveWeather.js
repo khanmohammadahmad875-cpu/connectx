@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../services/api';
 import { usePrefs } from '../context/PreferencesContext';
 import { weatherSceneForCode } from '../utils/weather';
+import { resolveCityName, storedCityName } from '../utils/geo';
 
 // Live weather for the animated backgrounds (polish item 6; location logic
 // added at the user's request): the scene follows the user's CURRENT
@@ -82,7 +83,9 @@ export function useLiveWeather() {
 
   const [geoLoc, setGeoLoc] = useState(() => {
     const g = readGeoCache();
-    return g ? { lat: g.lat, lon: g.lon, name: 'Current location', country: '' } : null;
+    return g
+      ? { lat: g.lat, lon: g.lon, name: storedCityName(g.lat, g.lon) || 'Current location', country: '' }
+      : null;
   });
   const geoAsked = useRef(false);
 
@@ -93,6 +96,15 @@ export function useLiveWeather() {
     geoAsked.current = true;
     let cancelled = false;
     const cached = readGeoCache();
+    // Even with a fresh cached position, make sure its city NAME is known
+    // (older caches were stored before names existed).
+    if (cached) {
+      resolveCityName(cached.lat, cached.lon).then((name) => {
+        if (!cancelled && name) {
+          setGeoLoc((prev) => (prev && samePlace(prev, cached) ? { ...prev, name } : prev));
+        }
+      });
+    }
     if (cached && Date.now() - cached.at < CACHE_TTL) return undefined;
     requestPosition().then((pos) => {
       if (cancelled || !pos) return;
@@ -102,8 +114,15 @@ export function useLiveWeather() {
         /* storage unavailable */
       }
       setGeoLoc((prev) =>
-        samePlace(prev, pos) ? prev : { lat: pos.lat, lon: pos.lon, name: 'Current location', country: '' }
+        samePlace(prev, pos)
+          ? prev
+          : { lat: pos.lat, lon: pos.lon, name: storedCityName(pos.lat, pos.lon) || 'Current location', country: '' }
       );
+      resolveCityName(pos.lat, pos.lon).then((name) => {
+        if (!cancelled && name) {
+          setGeoLoc((prev) => (prev && samePlace(prev, pos) ? { ...prev, name } : prev));
+        }
+      });
     });
     return () => {
       cancelled = true;
