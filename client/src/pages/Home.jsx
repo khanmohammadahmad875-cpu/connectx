@@ -83,6 +83,7 @@ export default function Home() {
   // handed over through sessionStorage, which the Chat page consumes once.
   function handleDockNav(key) {
     if (key === 'home') return;
+    if (key === 'reels') return navigate('/reels');
     if (key === 'status') return openStatus();
     if (key === 'communities' || key === 'calls') {
       sessionStorage.setItem('connectx_listview', key);
@@ -195,6 +196,36 @@ export default function Home() {
               🌦️ Weather
             </Link>
           </div>
+        </TiltCard>
+
+        <TiltCard className="dash-card">
+          <div className="dash-card-head">
+            <h3>Reels</h3>
+            <Link className="mini-btn" to="/reels">
+              Watch
+            </Link>
+          </div>
+          <p className="info-sub">
+            Short videos from people on ConnectX — your feed puts the interests you picked first.
+          </p>
+          <Link className="btn ghost" to="/reels">
+            🎬 Open Reels
+          </Link>
+        </TiltCard>
+
+        <TiltCard className="dash-card">
+          <div className="dash-card-head">
+            <h3>TikTok</h3>
+          </div>
+          <p className="info-sub">Watch on TikTok — opens the official TikTok site in a new tab.</p>
+          <a
+            className="btn ghost"
+            href="https://www.tiktok.com"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            🎵 Watch on TikTok ↗
+          </a>
         </TiltCard>
 
         <TiltCard className="dash-card">

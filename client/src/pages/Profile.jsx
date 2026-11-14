@@ -11,6 +11,7 @@ import WeatherScene from '../components/WeatherScene';
 import { useLiveWeather } from '../hooks/useLiveWeather';
 import { usePrefs } from '../context/PreferencesContext';
 import { ACCENTS } from '../utils/wallpapers';
+import { REEL_INTERESTS } from '../utils/interests';
 import { TIMEZONES } from '../utils/timezones';
 import { CONTACT_FIELD_META, visibilityOptionsFor } from '../utils/contactFields';
 
@@ -110,7 +111,9 @@ export default function Profile() {
     e.target.value = '';
     if (!file) return;
     // Images are cropped first (item 4); anything else keeps the old path.
-    if (file.type.startsWith('image/')) setCropFile(file);
+    // Phone pickers can return an image with an EMPTY type — the input's
+    // accept already constrained the choice, so empty still means "crop it".
+    if (!file.type || file.type.startsWith('image/')) setCropFile(file);
     else uploadPicture(file);
   }
 
@@ -184,6 +187,17 @@ export default function Profile() {
     savePrefs({ [key]: value }).catch((err) => setError(err.message));
   }
 
+  function toggleInterest(name) {
+    const current = prefs?.reelInterests || [];
+    const next = current.includes(name)
+      ? current.filter((x) => x !== name)
+      : [...current, name];
+    setNote('');
+    savePrefs({ reelInterests: next })
+      .then(() => setNote('Interests saved.'))
+      .catch((err) => setError(err.message));
+  }
+
   const subHeader = (title) => (
     <header className="page-header">
       <button className="icon-btn" onClick={() => setView('root')} aria-label="Back to settings">←</button>
@@ -227,6 +241,7 @@ export default function Profile() {
             <SettingsRow icon="🔒" title="Privacy" sub="Blocked accounts, chat lock, disappearing messages" onClick={() => setView('privacy')} />
             <SettingsRow icon="🔔" title="Notifications" sub="Message previews, alert sounds" onClick={() => setView('notifications')} />
             <SettingsRow icon="🎨" title="Appearance" sub="Theme, wallpaper, accent color" onClick={() => setView('appearance')} />
+            <SettingsRow icon="🎯" title="Interests" sub="What your Reels feed shows first" onClick={() => setView('interests')} />
             <SettingsRow icon="💾" title="Storage and data" sub="Export or import your data" onClick={() => navigate('/security#backup')} />
             <SettingsRow icon="♿" title="Accessibility" sub="Chat font size, animations" onClick={() => setView('accessibility')} />
             <SettingsRow icon="🏢" title="My Business" sub="Business profile, products, hours, quick replies" onClick={() => setView('business')} />
@@ -278,7 +293,7 @@ export default function Profile() {
                   ref={fileRef}
                   type="file"
                   hidden
-                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  accept="image/*"
                   onChange={changePicture}
                 />
               </div>
@@ -386,6 +401,39 @@ export default function Profile() {
                   ))}
                 </div>
               </>
+            ) : (
+              <div className="skeleton line w60" />
+            )}
+          </div>
+        </>
+      )}
+
+      {view === 'interests' && (
+        <>
+          {subHeader('Interests')}
+          <div className="profile-card">
+            {error && <p className="form-error">{error}</p>}
+            {note && <p className="ok-note">{note}</p>}
+            <p className="info-sub">
+              Pick the topics you enjoy — reels with these interests appear first in your Reels
+              feed. Changes save right away.
+            </p>
+            {prefs ? (
+              <div className="interest-chips">
+                {REEL_INTERESTS.map((name) => {
+                  const on = (prefs.reelInterests || []).includes(name);
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      className={`interest-chip ${on ? 'selected' : ''}`}
+                      onClick={() => toggleInterest(name)}
+                    >
+                      {name}
+                    </button>
+                  );
+                })}
+              </div>
             ) : (
               <div className="skeleton line w60" />
             )}

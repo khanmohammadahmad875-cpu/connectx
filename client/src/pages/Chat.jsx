@@ -729,6 +729,8 @@ export default function Chat() {
   function handleNav(key) {
     if (key === 'home') {
       navigate('/home');
+    } else if (key === 'reels') {
+      navigate('/reels');
     } else if (key === 'status') {
       setSection('status');
       loadStatusBadge();
