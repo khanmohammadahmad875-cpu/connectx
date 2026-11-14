@@ -199,14 +199,6 @@ export default function Reels() {
       <Link to="/home" className="icon-btn" aria-label="Back to home">←</Link>
       <h2>Reels</h2>
       <span className="spacer" />
-      <a
-        className="btn small ghost"
-        href="https://www.tiktok.com"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        TikTok ↗
-      </a>
       <button
         className="btn small primary"
         onClick={() => fileRef.current?.click()}

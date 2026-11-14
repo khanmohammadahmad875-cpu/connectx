@@ -215,21 +215,6 @@ export default function Home() {
 
         <TiltCard className="dash-card">
           <div className="dash-card-head">
-            <h3>TikTok</h3>
-          </div>
-          <p className="info-sub">Watch on TikTok — opens the official TikTok site in a new tab.</p>
-          <a
-            className="btn ghost"
-            href="https://www.tiktok.com"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            🎵 Watch on TikTok ↗
-          </a>
-        </TiltCard>
-
-        <TiltCard className="dash-card">
-          <div className="dash-card-head">
             <h3>Upcoming events</h3>
             <Link className="mini-btn" to="/calendar">
               Calendar
