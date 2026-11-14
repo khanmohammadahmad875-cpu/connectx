@@ -15,6 +15,9 @@ import ChannelsPanel from '../components/chat/ChannelsPanel';
 import CommunitiesPanel from '../components/chat/CommunitiesPanel';
 import CallsPanel from '../components/chat/CallsPanel';
 import CallUI from '../components/call/CallUI';
+import Dock from '../components/Dock';
+import WeatherScene from '../components/WeatherScene';
+import { useLiveWeather } from '../hooks/useLiveWeather';
 import { CallProvider } from '../context/CallContext';
 import { getUnlockToken, hasUnlockGrant } from '../utils/lock';
 import { playNotificationSound } from '../utils/format';
@@ -65,7 +68,24 @@ export default function Chat() {
   const [notifications, setNotifications] = useState([]);
   const [notifUnread, setNotifUnread] = useState(0);
   // Sidebar list views: main | archived | locked | channels | communities | calls
-  const [listView, setListView] = useState('main');
+  const [listView, setListView] = useState(() => {
+    const wanted = sessionStorage.getItem('connectx_listview');
+    if (wanted) sessionStorage.removeItem('connectx_listview');
+    return ['archived', 'locked', 'channels', 'communities', 'calls'].includes(wanted)
+      ? wanted
+      : 'main';
+  });
+  // Chat-list filter chips (item 1): all | unread | groups | channels. The
+  // dock's "Groups" destination is this filter set to 'groups'.
+  const [listFilter, setListFilter] = useState(() => {
+    const f = sessionStorage.getItem('connectx_filter');
+    if (f) sessionStorage.removeItem('connectx_filter');
+    return ['unread', 'groups', 'channels'].includes(f) ? f : 'all';
+  });
+  const [statusUnviewed, setStatusUnviewed] = useState(0);
+  const liveWeather = useLiveWeather();
+  const prefsRef = useRef(null);
+  prefsRef.current = prefs;
   const [quickReplies, setQuickReplies] = useState([]);
   // Live-location streaming state (module 29): sessionId -> watch handles.
   const liveWatchRef = useRef({});
@@ -223,7 +243,7 @@ export default function Chat() {
           markRead(message.conversationId);
         }
       } else if (senderIdOf(message) !== myId) {
-        playNotificationSound();
+        if (prefsRef.current?.soundAlerts !== false) playNotificationSound();
         loadNotifications();
       }
     };
@@ -327,6 +347,23 @@ export default function Chat() {
     document.title = total > 0 ? `(${total}) ConnectX` : 'ConnectX';
   }, [conversations]);
 
+  // Unviewed-status count for the dock's Status badge.
+  const loadStatusBadge = useCallback(async () => {
+    try {
+      const data = await api('/api/status/feed');
+      const groups = data.groups || [];
+      setStatusUnviewed(groups.filter((g) => !g.mine && g.hasUnviewed).length);
+    } catch (err) {
+      /* badge is best-effort */
+    }
+  }, []);
+
+  useEffect(() => {
+    loadStatusBadge();
+    const t = setInterval(loadStatusBadge, 60000);
+    return () => clearInterval(t);
+  }, [loadStatusBadge]);
+
   async function loadOlder() {
     if (!activeId || messages.length === 0) return;
     const data = await api(
@@ -341,7 +378,7 @@ export default function Chat() {
     setHasMore(older.length === PAGE_SIZE);
   }
 
-  async function sendMessage({ content, messageType, attachmentUrl, audioMeta, poll }) {
+  async function sendMessage({ content, messageType, attachmentUrl, audioMeta, videoMeta, poll }) {
     if (!activeId) return;
     const clientMessageId =
       window.crypto?.randomUUID?.() || `cm-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -354,6 +391,7 @@ export default function Chat() {
       messageType,
       attachmentUrl,
       audioMeta: audioMeta || undefined,
+      videoMeta: videoMeta || undefined,
       poll: poll
         ? {
             question: poll.question,
@@ -392,6 +430,7 @@ export default function Chat() {
       replyTo: replyTo?._id || null,
       clientMessageId,
       ...(audioMeta ? { audioMeta } : {}),
+      ...(videoMeta ? { videoMeta } : {}),
       ...(poll ? { poll } : {}),
     };
 
@@ -614,6 +653,26 @@ export default function Chat() {
     }
   }
 
+  // Pin (item 1): per-user visibility flag like archive — pinned chats stay
+  // on top of the list with a pin marker.
+  async function pinConversation(conv) {
+    try {
+      await api(`/api/conversations/${conv._id}/pin`, { method: 'POST' });
+      await loadConversations();
+    } catch (err) {
+      window.alert(err.message);
+    }
+  }
+
+  async function unpinConversation(conv) {
+    try {
+      await api(`/api/conversations/${conv._id}/unpin`, { method: 'POST' });
+      await loadConversations();
+    } catch (err) {
+      window.alert(err.message);
+    }
+  }
+
   // Called after the open conversation's lock/archive/hide state changes:
   // close it (it may no longer be accessible) and refresh every list.
   function handleVisibilityChanged() {
@@ -655,16 +714,68 @@ export default function Chat() {
     ? `${typingNames.join(', ')} ${typingNames.length > 1 ? 'are' : 'is'} typing…`
     : null;
 
+  // --- 3D dock / sidebar navigation (items 1 + 11b) -------------------------
+  const totalUnread = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+  const navActive =
+    section === 'status'
+      ? 'status'
+      : listView === 'communities'
+        ? 'communities'
+        : listView === 'calls'
+          ? 'calls'
+          : listView === 'main' && listFilter === 'groups'
+            ? 'groups'
+            : 'chats';
+  function handleNav(key) {
+    if (key === 'home') {
+      navigate('/home');
+    } else if (key === 'status') {
+      setSection('status');
+      loadStatusBadge();
+    } else if (key === 'communities') {
+      setSection('chats');
+      setListView('communities');
+    } else if (key === 'calls') {
+      setSection('chats');
+      setListView('calls');
+    } else if (key === 'groups') {
+      setSection('chats');
+      setListView('main');
+      setListFilter('groups');
+    } else {
+      setSection('chats');
+      setListView('main');
+      setListFilter('all');
+    }
+  }
+  const navBadges = { chats: totalUnread, status: statusUnviewed };
+  const ambientScene =
+    prefs?.liveWeatherBackground !== false && liveWeather ? liveWeather.scene : null;
+
   return (
     <CallProvider>
     <div className={`chat-shell ${activeId ? 'has-active' : ''}`}>
-      <aside className="sidebar">
+      <aside className={`sidebar ${ambientScene ? 'ambient' : ''}`}>
+        {ambientScene && <WeatherScene scene={ambientScene} className="sidebar-scene" />}
         <div className="sidebar-header">
           <div className="brand">
             <span className="brand-mark">CX</span>
             <span className="brand-name">ConnectX</span>
           </div>
           <div className="sidebar-actions">
+            <button
+              className="icon-btn"
+              title="New chat"
+              onClick={() => {
+                setNewMode('private');
+                setShowNew(true);
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.4 0-2.8-.34-4-.97L3 20l1.02-5.5A8.5 8.5 0 1 1 21 11.5Z" />
+                <path d="M12 8v7M8.5 11.5h7" />
+              </svg>
+            </button>
             <NotificationsBell
               notifications={notifications}
               unreadCount={notifUnread}
@@ -676,23 +787,7 @@ export default function Chat() {
             </button>
           </div>
         </div>
-        <div className="section-tabs">
-          <button className="section-tab" onClick={() => navigate('/home')}>
-            Home
-          </button>
-          <button
-            className={`section-tab ${section === 'chats' ? 'active' : ''}`}
-            onClick={() => setSection('chats')}
-          >
-            Chats
-          </button>
-          <button
-            className={`section-tab ${section === 'status' ? 'active' : ''}`}
-            onClick={() => setSection('status')}
-          >
-            Status
-          </button>
-        </div>
+        <Dock variant="side" active={navActive} badges={navBadges} onNavigate={handleNav} />
         {section === 'chats' ? (
           listView === 'main' ? (
             <ConversationList
@@ -703,13 +798,13 @@ export default function Chat() {
                 setListView('main');
                 selectConversation(id);
               }}
-              onNew={() => {
-                setNewMode('private');
-                setShowNew(true);
-              }}
               loading={loadingConvs}
               mode="main"
+              filter={listFilter}
+              onFilterChange={setListFilter}
               onArchive={archiveConversation}
+              onPin={pinConversation}
+              onUnpin={unpinConversation}
               archivedCount={archivedCount}
               lockedCount={lockCounts.lockedCount + lockCounts.hiddenCount}
               onOpenArchived={async () => {
@@ -772,6 +867,22 @@ export default function Chat() {
         ) : (
           <StatusPanel me={me} />
         )}
+        {section === 'chats' && listView === 'main' && (
+          <button
+            className="chat-fab"
+            title="New chat"
+            aria-label="New chat"
+            onClick={() => {
+              setNewMode('private');
+              setShowNew(true);
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.4 0-2.8-.34-4-.97L3 20l1.02-5.5A8.5 8.5 0 1 1 21 11.5Z" />
+              <path d="M12 8v7M8.5 11.5h7" />
+            </svg>
+          </button>
+        )}
         <div className="sidebar-footer">
           <span className="me-chip">
             <Avatar name={me.username} src={me.profilePicture} online size={30} />
@@ -794,8 +905,11 @@ export default function Chat() {
         </div>
       </aside>
 
+      <Dock active={navActive} badges={navBadges} onNavigate={handleNav} />
+
       {activeDetail ? (
         <ChatWindow
+          key={activeDetail._id}
           wallpaperPref={effectiveWallpaper(prefs, activeDetail._id)}
           conversation={activeDetail}
           messages={messages}

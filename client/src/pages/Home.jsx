@@ -4,6 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import Avatar from '../components/Avatar';
 import TiltCard from '../components/TiltCard';
+import Dock from '../components/Dock';
+import WeatherScene from '../components/WeatherScene';
+import { useLiveWeather } from '../hooks/useLiveWeather';
+import { usePrefs } from '../context/PreferencesContext';
 import WeatherWidget from '../components/WeatherWidget';
 import WorldClock from '../components/WorldClock';
 import NewChatModal from '../components/chat/NewChatModal';
@@ -28,6 +32,9 @@ export default function Home() {
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [myTasks, setMyTasks] = useState([]);
   const [newChatMode, setNewChatMode] = useState(null); // null | 'private' | 'group'
+  const [statusUnviewed, setStatusUnviewed] = useState(0);
+  const { prefs } = usePrefs();
+  const liveWeather = useLiveWeather();
 
   useEffect(() => {
     document.title = 'ConnectX · Home';
@@ -53,6 +60,9 @@ export default function Home() {
     api('/api/docs/my-tasks')
       .then((d) => setMyTasks(d.tasks || []))
       .catch(() => {});
+    api('/api/status/feed')
+      .then((d) => setStatusUnviewed((d.groups || []).filter((g) => !g.mine && g.hasUnviewed).length))
+      .catch(() => {});
   }, []);
 
   const unreadMessages = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
@@ -69,8 +79,25 @@ export default function Home() {
     navigate('/');
   }
 
+  // 3D dock destinations (item 11b): cross-navigation into the chat shell is
+  // handed over through sessionStorage, which the Chat page consumes once.
+  function handleDockNav(key) {
+    if (key === 'home') return;
+    if (key === 'status') return openStatus();
+    if (key === 'communities' || key === 'calls') {
+      sessionStorage.setItem('connectx_listview', key);
+    } else if (key === 'groups') {
+      sessionStorage.setItem('connectx_filter', 'groups');
+    }
+    navigate('/');
+  }
+
+  const ambientScene =
+    prefs?.liveWeatherBackground !== false && liveWeather ? liveWeather.scene : null;
+
   return (
-    <div className="dash-shell">
+    <div className={`dash-shell ${ambientScene ? 'scene-on' : ''}`}>
+      {ambientScene && <WeatherScene scene={ambientScene} className="dash-scene" />}
       <header className="dash-header">
         <div className="brand">
           <span className="brand-mark">CX</span>
@@ -349,6 +376,12 @@ export default function Home() {
           }}
         />
       )}
+
+      <Dock
+        active="home"
+        badges={{ chats: unreadMessages, status: statusUnviewed }}
+        onNavigate={handleDockNav}
+      />
     </div>
   );
 }

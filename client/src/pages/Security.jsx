@@ -40,6 +40,17 @@ export default function Security() {
     loadSecurity();
   }, [loadSecurity]);
 
+  // Deep links from Settings (Linked devices / Account / Storage and data)
+  // arrive as #sessions / #account / #backup — scroll the card into view.
+  useEffect(() => {
+    const id = window.location.hash.replace('#', '');
+    if (!['sessions', 'account', 'backup'].includes(id)) return undefined;
+    const t = setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 350);
+    return () => clearTimeout(t);
+  }, []);
+
   async function startSetup() {
     setError('');
     try {
@@ -155,7 +166,7 @@ export default function Security() {
       {error && <p className="form-error">{error}</p>}
       {notice && <p className="form-notice">{notice}</p>}
 
-      <div className="dash-card">
+      <div className="dash-card" id="account">
         <div className="dash-card-head">
           <h3>🔐 Two-factor authentication (authenticator app)</h3>
           <span className={`cal-status ${twofaEnabled ? 'ok' : ''}`}>{twofaEnabled ? 'On' : 'Off'}</span>
@@ -238,7 +249,7 @@ export default function Security() {
         )}
       </div>
 
-      <div className="dash-card">
+      <div className="dash-card" id="sessions">
         <div className="dash-card-head">
           <h3>🖥️ Active sessions</h3>
           <button className="mini-btn" onClick={revokeOthers}>Sign out all other sessions</button>
@@ -272,7 +283,7 @@ export default function Security() {
         ))}
       </div>
 
-      <div className="dash-card">
+      <div className="dash-card" id="backup">
         <div className="dash-card-head"><h3>💾 Backup &amp; restore</h3></div>
         <p className="info-sub">
           Export downloads your profile, preferences, messages, events and documents
