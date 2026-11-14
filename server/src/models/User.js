@@ -113,6 +113,21 @@ const userSchema = new mongoose.Schema(
       weatherCities: { type: [weatherCitySchema], default: [] },
       clockCities: { type: [clockCitySchema], default: [] },
       clockFormat24h: { type: Boolean, default: false },
+      // UI theme (WhatsApp-style polish): 'light' is the product default;
+      // 'system' follows the device setting on the client.
+      theme: { type: String, enum: ['light', 'dark', 'system'], default: 'light' },
+      // Ambient live-weather background behind the app shell / dashboard.
+      liveWeatherBackground: { type: Boolean, default: true },
+      // Accessibility: chat text size + decorative animations master switch.
+      fontSize: { type: String, enum: ['small', 'medium', 'large'], default: 'medium' },
+      animationsEnabled: { type: Boolean, default: true },
+      // Notifications: show message previews in the notifications list, and
+      // play the in-app alert sound for new messages.
+      notificationPreviews: { type: Boolean, default: true },
+      soundAlerts: { type: Boolean, default: true },
+      // Default disappearing-message timer applied to conversations this
+      // user creates (seconds; 0 = off).
+      defaultDisappearingDuration: { type: Number, default: 0 },
     },
     // Contact card / address book (module 28). Field values live here; who may
     // see each field is governed by contactVisibility and enforced by the API.

@@ -76,7 +76,7 @@ const messageSchema = new mongoose.Schema(
     content: { type: String, default: '', maxlength: 4000 },
     messageType: {
       type: String,
-      enum: ['text', 'image', 'file', 'audio', 'poll', 'call', 'location', 'live_location'],
+      enum: ['text', 'image', 'file', 'audio', 'video', 'poll', 'call', 'system', 'location', 'live_location'],
       default: 'text',
     },
     // Call system messages (module 8) point at their Call record; only the
@@ -96,6 +96,17 @@ const messageSchema = new mongoose.Schema(
       duration: { type: Number, default: 0 },
       waveform: { type: [Number], default: [] },
     },
+    // Video message metadata: duration in seconds (measured client-side),
+    // file size in bytes and the MIME type, all captured at send time.
+    videoMeta: {
+      duration: { type: Number, default: 0 },
+      size: { type: Number, default: 0 },
+      mime: { type: String, default: '' },
+    },
+    // Disappearing messages: when set, the message is filtered out of every
+    // read once this passes, and a TTL index removes the document itself.
+    // Null for ordinary messages (TTL ignores nulls).
+    expiresAt: { type: Date, default: null },
     // Embedded poll state (only set when messageType === 'poll').
     poll: { type: pollSchema, default: undefined },
     // Link safety analysis of `content` (module 24), computed server-side
@@ -118,6 +129,10 @@ const messageSchema = new mongoose.Schema(
 );
 
 messageSchema.index({ conversationId: 1, createdAt: -1 });
+// TTL cleanup for disappearing messages (same approach as Status): MongoDB
+// deletes the document once expiresAt passes; reads filter lazily as well,
+// so expiry is exact even before the TTL monitor runs.
+messageSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 messageSchema.index({ senderId: 1, clientMessageId: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Message', messageSchema);

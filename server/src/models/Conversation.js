@@ -13,6 +13,10 @@ const conversationSchema = new mongoose.Schema(
     admins: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     lastMessage: { type: mongoose.Schema.Types.ObjectId, ref: 'Message', default: null },
+    // Disappearing messages: when > 0, messages created in this conversation
+    // get an expiresAt that many seconds after they are sent. 0 = off.
+    // Product options are Off / 24h (86400) / 7d (604800).
+    disappearingDurationSec: { type: Number, default: 0 },
     // For private chats: "userIdA:userIdB" (sorted) with a unique index, so the
     // same pair of users can never get two private conversations.
     pairKey: { type: String, default: null },

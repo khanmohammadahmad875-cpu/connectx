@@ -8,14 +8,15 @@ const statusViewerSchema = new mongoose.Schema(
   { _id: false }
 );
 
-// WhatsApp-style status (story): an image or a text card with a background
-// color, visible for 24 hours to users who share a conversation with the
-// author. A TTL index on expiresAt removes expired statuses automatically.
+// WhatsApp-style status (story): an image, a video, or a text card with a
+// background color, visible for 24 hours to users who share a conversation
+// with the author. A TTL index on expiresAt removes expired statuses
+// automatically.
 const statusSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    type: { type: String, enum: ['image', 'text'], required: true },
-    mediaUrl: { type: String, default: '' }, // for type "image" (uploads pipeline)
+    type: { type: String, enum: ['image', 'video', 'text'], required: true },
+    mediaUrl: { type: String, default: '' }, // for types "image"/"video" (uploads pipeline)
     text: { type: String, default: '', maxlength: 700 }, // for type "text"
     backgroundColor: { type: String, default: '#2f7bff', maxlength: 32 }, // text card bg
     viewers: { type: [statusViewerSchema], default: [] },

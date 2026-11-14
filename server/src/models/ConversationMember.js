@@ -18,6 +18,9 @@ const conversationMemberSchema = new mongoose.Schema(
     // Archive (Module 20): visibility-only for this user. A new incoming
     // message clears it automatically (auto-unarchive).
     archived: { type: Boolean, default: false },
+    // Pin: per-user ordering only — pinned conversations sort to the top of
+    // this user's chat list (WhatsApp-style polish). Never affects others.
+    pinned: { type: Boolean, default: false },
     // Chat lock (Module 19): locked for this user; history and sends are
     // refused server-side without a short-lived unlock grant.
     locked: { type: Boolean, default: false },
