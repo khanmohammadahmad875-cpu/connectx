@@ -60,6 +60,7 @@ async function createMessage({
   replyTo = null,
   clientMessageId = null,
   audioMeta = null,
+  videoMeta = null,
   poll = null,
   location = null,
   liveLocation = null,
@@ -76,6 +77,14 @@ async function createMessage({
   if (messageType === 'call') {
     // Call system messages are written by callService only — never clients.
     const err = new Error('Call messages are created by the server');
+    err.status = 400;
+    throw err;
+  }
+
+  if (messageType === 'system') {
+    // System notices (e.g. disappearing-message changes) are written by the
+    // server only — never clients.
+    const err = new Error('System messages are created by the server');
     err.status = 400;
     throw err;
   }
@@ -161,6 +170,22 @@ async function createMessage({
     };
   }
 
+  // Video metadata: duration (s), size (bytes) and MIME — clamped, all
+  // optional. A video message without an uploaded file is meaningless.
+  let videoDoc;
+  if (messageType === 'video') {
+    if (!attachmentUrl) {
+      const err = new Error('A video message needs an uploaded video file');
+      err.status = 400;
+      throw err;
+    }
+    videoDoc = {
+      duration: Math.max(0, Math.min(86400, Number(videoMeta && videoMeta.duration) || 0)),
+      size: Math.max(0, Math.min(64 * 1024 * 1024, Number(videoMeta && videoMeta.size) || 0)),
+      mime: String((videoMeta && videoMeta.mime) || '').slice(0, 100),
+    };
+  }
+
   // Voice metadata: duration in seconds + waveform peaks clamped to 0..1.
   let audioDoc;
   if (messageType === 'audio') {
@@ -195,6 +220,14 @@ async function createMessage({
     ? analyzeLinks(content)
     : [];
 
+  // Disappearing messages: stamp the expiry from the conversation's timer.
+  // System/call notices are written directly with Message.create elsewhere
+  // and never expire.
+  const disappearingSec =
+    conversation && Number(conversation.disappearingDurationSec) > 0
+      ? Number(conversation.disappearingDurationSec)
+      : 0;
+
   let message;
   try {
     message = await Message.create({
@@ -208,6 +241,8 @@ async function createMessage({
       linkFlags,
       readBy: [senderId],
       deliveredTo: [senderId],
+      ...(disappearingSec ? { expiresAt: new Date(Date.now() + disappearingSec * 1000) } : {}),
+      ...(videoDoc ? { videoMeta: videoDoc } : {}),
       ...(audioDoc ? { audioMeta: audioDoc } : {}),
       ...(pollDoc ? { poll: pollDoc } : {}),
       ...(locationDoc ? { location: locationDoc } : {}),
@@ -330,4 +365,13 @@ async function createMessage({
   };
 }
 
-module.exports = { createMessage, requireMembership, populateMessage };
+// Read-side filter for disappearing messages: a message counts as present
+// while it has no expiry or its expiry is still in the future. Spread this
+// into every message query that feeds a user-visible read (history, unread
+// counts, last-message previews). The TTL index removes the documents
+// themselves in the background.
+function notExpired() {
+  return { $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] };
+}
+
+module.exports = { createMessage, requireMembership, populateMessage, notExpired };
