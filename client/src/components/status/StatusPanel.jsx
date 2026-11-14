@@ -190,14 +190,14 @@ export default function StatusPanel({ me }) {
             ref={fileRef}
             type="file"
             hidden
-            accept="image/jpeg,image/png,image/gif,image/webp"
+            accept="image/*"
             onChange={(e) => postMediaStatus(e, 'image')}
           />
           <input
             ref={videoFileRef}
             type="file"
             hidden
-            accept="video/mp4,video/webm,video/quicktime"
+            accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
             onChange={(e) => postMediaStatus(e, 'video')}
           />
         </div>
