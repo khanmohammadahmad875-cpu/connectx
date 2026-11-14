@@ -144,9 +144,44 @@ function makeWeatherStub() {
   });
 }
 
+// Stub Aladhan provider so the prayer-times checks never touch the network.
+let lastPrayerQuery = '';
+function makePrayerStub() {
+  return http.createServer((req, res) => {
+    res.setHeader('content-type', 'application/json');
+    const u = new URL(req.url, 'http://localhost');
+    if (u.pathname.startsWith('/timings/')) {
+      lastPrayerQuery = u.search;
+      const school = u.searchParams.get('school');
+      res.end(
+        JSON.stringify({
+          code: 200,
+          data: {
+            timings: {
+              Fajr: '05:19', Sunrise: '06:45', Dhuhr: '11:58',
+              Asr: school === '0' ? '14:51' : '15:33',
+              Sunset: '17:11', Maghrib: '17:11', Isha: '18:37',
+            },
+            date: {
+              readable: '14 Nov 2026',
+              hijri: { day: '4', month: { en: 'Jumada al-awwal' }, year: '1448', weekday: { en: 'Al Sabt' } },
+            },
+            meta: { timezone: 'Asia/Karachi', method: { name: 'University of Islamic Sciences, Karachi' } },
+          },
+        })
+      );
+      return;
+    }
+    res.statusCode = 404;
+    res.end('{}');
+  });
+}
+
 async function main() {
   const weatherStub = makeWeatherStub();
   await new Promise((resolve) => weatherStub.listen(5077, resolve));
+  const prayerStub = makePrayerStub();
+  await new Promise((resolve) => prayerStub.listen(5078, resolve));
   console.log('[test] Starting ConnectX server on port', PORT, '...');
   const server = spawn('node', ['src/server.js'], {
     cwd: path.join(__dirname, '..'),
@@ -163,6 +198,7 @@ async function main() {
       EVENT_REMINDER_INTERVAL_MS: '300',
       OPEN_METEO_GEO_URL: 'http://localhost:5077/geo',
       OPEN_METEO_API_URL: 'http://localhost:5077/forecast',
+      ALADHAN_URL: 'http://localhost:5078',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -673,6 +709,20 @@ async function main() {
     });
     check("preferences: 'live-weather' wallpaper key persists",
       wpLive.status === 200 && wpLive.data.preferences.wallpaper === 'live-weather');
+    const ffSave = await req('PATCH', '/api/users/me/preferences', {
+      token: A.token,
+      body: { fontFamily: 'classic', easyMode: true },
+    });
+    const ffReload = await req('GET', '/api/users/me/preferences', { token: A.token });
+    check('preferences: fontFamily + easyMode save and reload',
+      ffSave.status === 200 &&
+        ffReload.data.preferences.fontFamily === 'classic' &&
+        ffReload.data.preferences.easyMode === true);
+    const ffBad = await req('PATCH', '/api/users/me/preferences', {
+      token: A.token,
+      body: { fontFamily: 'comic' },
+    });
+    check('preferences: invalid fontFamily is rejected (400)', ffBad.status === 400);
     // Restore the choices later sections do not depend on, to be safe.
     await req('PATCH', '/api/users/me/preferences', {
       token: A.token,
@@ -747,6 +797,23 @@ async function main() {
         wxForecast.data.hourly.length === 24 &&
         wxForecast.data.daily.length === 7 &&
         typeof wxForecast.data.daily[0].max === 'number');
+    // --- Prayer times (Namaz): stubbed Aladhan provider ------------------
+    const prAnon = await req('GET', '/api/prayer-times?lat=34.01&lon=71.52');
+    check('prayer: unauthenticated request is rejected (401)', prAnon.status === 401);
+    const prMissing = await req('GET', '/api/prayer-times', { token: A.token });
+    check('prayer: missing lat/lon is rejected (400)', prMissing.status === 400);
+    const prHanafi = await req('GET', '/api/prayer-times?lat=34.0151&lon=71.5249', { token: A.token });
+    check('prayer: Karachi + Hanafi defaults (Asr 15:33, six timings, hijri, timezone)',
+      prHanafi.status === 200 &&
+        prHanafi.data.timings.Fajr === '05:19' &&
+        prHanafi.data.timings.Asr === '15:33' &&
+        prHanafi.data.timings.Isha === '18:37' &&
+        prHanafi.data.hijri.month === 'Jumada al-awwal' &&
+        prHanafi.data.timezone === 'Asia/Karachi');
+    const prShafi = await req('GET', '/api/prayer-times?lat=33.6&lon=73.1&school=0', { token: A.token });
+    check('prayer: Shafi juristic method moves Asr earlier (14:51)',
+      prShafi.status === 200 && prShafi.data.timings.Asr === '14:51');
+
 
     // --- v3.0 Phase B: voice messages (Module 5) -------------------------
     const audioForm = new FormData();
@@ -1079,11 +1146,11 @@ async function main() {
         accSave.data.preferences.fontSize === 'large' &&
         accSave.data.preferences.animationsEnabled === false &&
         accSave.data.preferences.soundAlerts === false);
-    const fontBad = await req('PATCH', '/api/users/me/preferences', {
+    const fsBad = await req('PATCH', '/api/users/me/preferences', {
       token: A.token,
       body: { fontSize: 'huge' },
     });
-    check('settings prefs: an invalid font size is rejected (400)', fontBad.status === 400);
+    check('settings prefs: an invalid font size is rejected (400)', fsBad.status === 400);
     await req('PATCH', '/api/users/me/preferences', {
       token: A.token,
       body: { fontSize: 'medium', animationsEnabled: true, soundAlerts: true },
