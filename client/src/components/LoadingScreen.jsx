@@ -4,6 +4,36 @@
 // gradient progress bar. Shown while the session restores; a matching
 // static copy lives in index.html so the very first paint (before the
 // JS bundle arrives) looks exactly the same.
+import { useEffect, useRef, useState } from 'react';
+
+// Minimum-time gate (second showing of the loading scene): once the
+// splash appears it stays for at least `ms`, even if the session check
+// finishes sooner — the branding gets its full moment on every cold
+// open, while real loading continues in parallel.
+export function useSplashMin(loading, ms = 900) {
+  const [show, setShow] = useState(loading);
+  const startRef = useRef(null);
+  useEffect(() => {
+    if (loading) {
+      if (startRef.current === null) startRef.current = Date.now();
+      setShow(true);
+      return undefined;
+    }
+    if (startRef.current === null) {
+      setShow(false);
+      return undefined;
+    }
+    const left = ms - (Date.now() - startRef.current);
+    if (left <= 0) {
+      setShow(false);
+      return undefined;
+    }
+    const t = setTimeout(() => setShow(false), left);
+    return () => clearTimeout(t);
+  }, [loading, ms]);
+  return show;
+}
+
 export default function LoadingScreen() {
   const letters = 'ConnectX'.split('');
   return (
