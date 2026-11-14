@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api, uploadFile } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { usePrefs } from '../context/PreferencesContext';
 import Avatar from '../components/Avatar';
+import Dock from '../components/Dock';
 import { REEL_INTERESTS } from '../utils/interests';
 
 // Reels: a TikTok-style vertical feed. Full-screen snap scrolling, the
@@ -12,6 +13,22 @@ import { REEL_INTERESTS } from '../utils/interests';
 // feed by the caller's reelInterests, so picked interests come first.
 export default function Reels() {
   const { user: me } = useAuth();
+  const navigate = useNavigate();
+
+  // The bottom dock lives here too — pinned to the screen's bottom like
+  // everywhere else, same card, same design (never part of the scroll).
+  function handleDockNav(key) {
+    if (key === 'reels') return;
+    if (key === 'home') return navigate('/home');
+    if (key === 'status') {
+      sessionStorage.setItem('connectx_section', 'status');
+    } else if (key === 'communities' || key === 'calls') {
+      sessionStorage.setItem('connectx_listview', key);
+    } else if (key === 'groups') {
+      sessionStorage.setItem('connectx_filter', 'groups');
+    }
+    navigate('/');
+  }
   const { prefs, save: savePrefs, loading: prefsLoading } = usePrefs();
   const [reels, setReels] = useState([]);
   const [loadingFeed, setLoadingFeed] = useState(true);
@@ -221,6 +238,7 @@ export default function Reels() {
       <div className="reels-shell">
         {header}
         <p className="empty-note center">Loading Reels…</p>
+        <Dock active="reels" onNavigate={handleDockNav} />
       </div>
     );
   }
@@ -260,6 +278,7 @@ export default function Reels() {
             Skip for now
           </button>
         </div>
+        <Dock active="reels" onNavigate={handleDockNav} />
       </div>
     );
   }
@@ -378,6 +397,7 @@ export default function Reels() {
           })}
         </div>
       )}
+      <Dock active="reels" onNavigate={handleDockNav} />
     </div>
   );
 }
