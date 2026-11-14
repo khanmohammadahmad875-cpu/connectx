@@ -26,6 +26,7 @@ export function CallProvider({ children }) {
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
   const [facingMode, setFacingMode] = useState('user'); // 'user' front | 'environment' back
+  const [flashOn, setFlashOn] = useState(false); // torch (back) or screen light (front)
   const [durationSec, setDurationSec] = useState(0);
   const [notice, setNotice] = useState('');
   const [localStream, setLocalStream] = useState(null);
@@ -34,6 +35,7 @@ export function CallProvider({ children }) {
   const pcRef = useRef(null);
   const localStreamRef = useRef(null);
   const facingRef = useRef('user');
+  const flashRef = useRef(false);
   const pendingIceRef = useRef([]);
   const callRef = useRef(null);
   callRef.current = call;
@@ -67,6 +69,8 @@ export function CallProvider({ children }) {
     setCameraOff(false);
     setFacingMode('user');
     facingRef.current = 'user';
+    flashRef.current = false;
+    setFlashOn(false);
     setDurationSec(0);
     setCall(null);
     setStatus('idle');
@@ -241,6 +245,47 @@ export function CallProvider({ children }) {
     setCameraOff(next);
   }, [cameraOff]);
 
+  // Flash light, video calls: with the back camera it is the phone's real
+  // torch; phones have no front flash LED, so with the front camera the
+  // "light" is a bright screen glow rendered by CallUI (flashOn + facing
+  // 'user'). Just On/Off, following whichever camera is active.
+  const toggleFlash = useCallback(async () => {
+    const stream = localStreamRef.current;
+    const track = stream && stream.getVideoTracks()[0];
+    if (!track) return;
+    const next = !flashRef.current;
+    const caps = (track.getCapabilities && track.getCapabilities()) || {};
+    if (!next) {
+      if (caps.torch) {
+        try {
+          await track.applyConstraints({ advanced: [{ torch: false }] });
+        } catch (err) {
+          /* stopping the track at call end also kills the torch */
+        }
+      }
+      flashRef.current = false;
+      setFlashOn(false);
+      return;
+    }
+    if (caps.torch) {
+      try {
+        await track.applyConstraints({ advanced: [{ torch: true }] });
+        flashRef.current = true;
+        setFlashOn(true);
+      } catch (err) {
+        setNotice('Flash light could not be switched on.');
+      }
+      return;
+    }
+    if (facingRef.current === 'user') {
+      // Front camera: screen light (CallUI renders the bright glow).
+      flashRef.current = true;
+      setFlashOn(true);
+      return;
+    }
+    setNotice('Flash light is not available on this device.');
+  }, []);
+
   // Flip between the front and back cameras mid-call: grab a fresh video
   // track with the opposite facingMode and swap it into the peer
   // connection's video sender, so the call never drops or renegotiates.
@@ -267,6 +312,21 @@ export function CallProvider({ children }) {
       stream.addTrack(newTrack);
       facingRef.current = next;
       setFacingMode(next);
+      // Keep the flash following the active camera: a back camera with a
+      // torch gets the real light; the front camera falls back to the
+      // screen light (flashOn simply stays on and CallUI glows).
+      if (flashRef.current) {
+        const caps = (newTrack.getCapabilities && newTrack.getCapabilities()) || {};
+        if (caps.torch) {
+          newTrack
+            .applyConstraints({ advanced: [{ torch: true }] })
+            .catch(() => {});
+        } else if (next === 'environment') {
+          flashRef.current = false;
+          setFlashOn(false);
+          setNotice('Flash light is not available on this device.');
+        }
+      }
       // A fresh MediaStream object so the preview <video> re-binds.
       setLocalStream(new MediaStream(stream.getTracks()));
     } catch (err) {
@@ -364,6 +424,8 @@ export function CallProvider({ children }) {
     toggleCamera,
     facingMode,
     switchCamera,
+    flashOn,
+    toggleFlash,
   };
   return <CallContext.Provider value={value}>{children}</CallContext.Provider>;
 }
