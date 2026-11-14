@@ -134,6 +134,7 @@ export default function PrayerTimesCard() {
   });
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState('');
   const [openGear, setOpenGear] = useState('');
@@ -226,7 +227,7 @@ export default function PrayerTimesCard() {
 
   const useMyLocation = useCallback((quiet) => {
     if (!navigator.geolocation) {
-      if (!quiet) setError('Geolocation is not available in this browser.');
+      if (!quiet) setNote('Is browser mein location ki sahulat nahi hai — city search kar lo, wohi chalegi.');
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -238,12 +239,18 @@ export default function PrayerTimesCard() {
         } catch (err) {
           /* cache is best-effort */
         }
+        setNote('');
         choosePlace({ name: 'Current location', lat, lon });
       },
       () => {
-        if (!quiet) setError('Location permission was denied — search for a city instead.');
+        // NOT an app error: the phone's Location is off or the permission
+        // was not given. Keep the saved city running and say so softly —
+        // never a red error the user can do nothing about.
+        if (!quiet) {
+          setNote('Location nahi mili — phone ki Location ON karke dobara try karo, ya city search kar lo. Saved city chalti rahegi.');
+        }
       },
-      { timeout: 10000, maximumAge: 300000 }
+      { timeout: 10000, maximumAge: 300000, enableHighAccuracy: false }
     );
   }, [choosePlace]);
 
@@ -313,6 +320,7 @@ export default function PrayerTimesCard() {
         </div>
       )}
       {error && <p className="prayer-error">{error}</p>}
+      {note && <p className="empty-note">{note}</p>}
       {busy && !data && <p className="info-sub">Loading prayer times…</p>}
 
       {data && (
