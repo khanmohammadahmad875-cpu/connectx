@@ -3741,3 +3741,71 @@ label.azan-setrow { cursor: default; }
   box-shadow: 0 8px 20px rgba(9, 60, 44, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 .azan-setrow select { border-color: rgba(160, 195, 180, 0.6); background: rgba(255, 255, 255, 0.85); }
+
+/* --- UI completion pass (from the user's page-by-page screenshots,
+   2026-11-15): every card complete inside the screen, every label
+   readable over the live-weather scene — same liquid-glass language. */
+
+/* Nothing in the chat shell may stretch the column past the screen. */
+.chat-shell > *,
+.sidebar,
+.conv-list-wrap,
+.conv-list,
+.conv-search-row { min-width: 0; }
+.conv-search-row .search-input { min-width: 0; }
+.conv-search-row > .btn,
+.conv-search-row > .icon-btn { flex: none; }
+.list-view-title.inline { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Ambient chat cards: width:100% + side margins overflowed the screen
+   by exactly the margins — the card's right edge ran off-screen. */
+.sidebar.ambient .conv-item { width: auto; }
+
+/* Filter chips: wrap so every chip is fully visible, never cut. */
+.filter-chips { flex-wrap: wrap; overflow-x: visible; }
+
+/* Empty states over the animated scene become frosted glass chips —
+   readable on any sky. */
+.sidebar.ambient .empty-note {
+  color: var(--text);
+  background: var(--card-translucent);
+  border: 1px solid rgba(255, 255, 255, .45);
+  border-radius: 14px;
+  margin: 10px 12px;
+  box-shadow: 0 8px 20px rgba(15, 40, 30, .13), inset 0 1px 0 rgba(255, 255, 255, .65);
+  backdrop-filter: blur(10px) saturate(1.3);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+}
+.sidebar.ambient .conv-preview { color: color-mix(in srgb, var(--text) 74%, transparent); }
+
+/* Status panel: keep the "My status" row and its add button inside. */
+.status-panel { min-width: 0; }
+.status-my-row { min-width: 0; }
+.status-my-main { min-width: 0; flex: 1; }
+
+/* Narrow dash pages (Security): the cards were transparent shells —
+   border and shadow but no surface, radius or padding. Complete them
+   into real cards, exactly like Home's. */
+.dash-shell.narrow .dash-card {
+  background: var(--panel);
+  border-radius: 18px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+.dash-shell.narrow .dash-card-head { flex-wrap: wrap; gap: 8px; }
+
+/* Calendar toolbar: the month title's 190px floor pushed "+ New event"
+   off the right edge on phones. Let it shrink; on small screens the
+   button takes its own full row. */
+.cal-toolbar { flex-wrap: wrap; }
+.cal-title { min-width: 0; flex: 1; }
+@media (max-width: 640px) {
+  .cal-toolbar .btn.primary { order: 4; flex-basis: 100%; }
+  .cal-title { font-size: 18px; }
+}
+
+/* New-chat FAB: anchor it to the viewport on phones so no container
+   can push it off an edge; it floats clear above the dock. */
+@media (max-width: 760px) {
+  .chat-fab { position: fixed; right: 16px; bottom: 108px; z-index: 940; }
+}
