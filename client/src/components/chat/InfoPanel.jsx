@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api, uploadFile } from '../../services/api';
 import Avatar from '../Avatar';
 import WallpaperPicker from '../WallpaperPicker';
+import ImageCropper from '../ImageCropper';
 import { conversationTitle, otherParticipant } from '../../utils/format';
 import { usePrefs } from '../../context/PreferencesContext';
 import { effectiveWallpaper } from '../../utils/wallpapers';
@@ -18,6 +19,7 @@ export default function InfoPanel({ conversation, me, onClose, onChanged, onLeft
   const [error, setError] = useState('');
   const [note, setNote] = useState('');
   const groupImageRef = useRef(null);
+  const [cropFile, setCropFile] = useState(null);
 
   const { prefs, save: savePrefs } = usePrefs();
   const [contactCard, setContactCard] = useState(null);
@@ -151,24 +153,12 @@ export default function InfoPanel({ conversation, me, onClose, onChanged, onLeft
               type="file"
               hidden
               accept="image/jpeg,image/png,image/gif,image/webp"
-              onChange={async (e) => {
+              onChange={(e) => {
                 const file = e.target.files?.[0];
                 e.target.value = '';
                 if (!file) return;
-                try {
-                  const result = await uploadFile(file);
-                  if (result.messageType !== 'image') throw new Error('Please choose an image file');
-                  await act(
-                    () =>
-                      api(`/api/conversations/${conversation._id}`, {
-                        method: 'PATCH',
-                        body: { groupImage: result.url },
-                      }),
-                    'Group picture updated'
-                  );
-                } catch (err) {
-                  setError(err.message);
-                }
+                // Images go through the crop dialog first (item 4).
+                if (file.type.startsWith('image/')) setCropFile(file);
               }}
             />
           </>
@@ -223,6 +213,31 @@ export default function InfoPanel({ conversation, me, onClose, onChanged, onLeft
 
       <h5 className="info-section">Archive &amp; chat lock</h5>
       <div className="info-actions stack">
+        {conversation.pinned ? (
+          <button
+            className="btn ghost"
+            onClick={() =>
+              act(
+                () => api(`/api/conversations/${conversation._id}/unpin`, { method: 'POST' }),
+                'Chat unpinned'
+              )
+            }
+          >
+            📍 Unpin chat
+          </button>
+        ) : (
+          <button
+            className="btn ghost"
+            onClick={() =>
+              act(
+                () => api(`/api/conversations/${conversation._id}/pin`, { method: 'POST' }),
+                'Chat pinned — it stays on top of your list'
+              )
+            }
+          >
+            📌 Pin chat
+          </button>
+        )}
         {conversation.archived ? (
           <button
             className="btn ghost"
@@ -329,6 +344,53 @@ export default function InfoPanel({ conversation, me, onClose, onChanged, onLeft
           </>
         )}
       </div>
+
+      <h5 className="info-section">Disappearing messages</h5>
+      {(() => {
+        const current = conversation.disappearingDurationSec || 0;
+        const canSet = conversation.type === 'private' || conversation.myRole === 'admin';
+        const label = current === 86400 ? '24 hours' : current === 604800 ? '7 days' : '';
+        return (
+          <>
+            {canSet ? (
+              <div className="seg-row" role="group" aria-label="Disappearing messages">
+                {[
+                  { v: 0, l: 'Off' },
+                  { v: 86400, l: '24 hours' },
+                  { v: 604800, l: '7 days' },
+                ].map((o) => (
+                  <button
+                    key={o.v}
+                    type="button"
+                    className={`seg-btn ${current === o.v ? 'active' : ''}`}
+                    onClick={() =>
+                      act(
+                        () =>
+                          api(`/api/conversations/${conversation._id}`, {
+                            method: 'PATCH',
+                            body: { disappearingDurationSec: o.v },
+                          }),
+                        o.v === 0
+                          ? 'Disappearing messages turned off'
+                          : `New messages will disappear after ${o.l}`
+                      )
+                    }
+                  >
+                    {o.l}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="info-sub">Only admins can change this setting.</p>
+            )}
+            <p className="info-sub">
+              {current > 0
+                ? `On: new messages in this chat disappear ${label} after they are sent.`
+                : 'Off: new messages stay in this chat.'}
+            </p>
+          </>
+        );
+      })()}
 
       {isGroup && (
         <>
@@ -535,6 +597,29 @@ export default function InfoPanel({ conversation, me, onClose, onChanged, onLeft
           </button>
         )}
       </div>
+      {cropFile && (
+        <ImageCropper
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onDone={async (cropped) => {
+            setCropFile(null);
+            try {
+              const result = await uploadFile(cropped);
+              if (result.messageType !== 'image') throw new Error('Please choose an image file');
+              await act(
+                () =>
+                  api(`/api/conversations/${conversation._id}`, {
+                    method: 'PATCH',
+                    body: { groupImage: result.url },
+                  }),
+                'Group picture updated'
+              );
+            } catch (err) {
+              setError(err.message);
+            }
+          }}
+        />
+      )}
     </aside>
   );
 }

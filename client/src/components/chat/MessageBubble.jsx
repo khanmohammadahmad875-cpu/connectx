@@ -13,6 +13,8 @@ export function replyPreviewText(message) {
   switch (message.messageType) {
     case 'image':
       return 'Photo';
+    case 'video':
+      return '🎥 Video';
     case 'audio':
       return '🎤 Voice message';
     case 'poll':
@@ -98,8 +100,9 @@ export default function MessageBubble({
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
   const sender = typeof message.senderId === 'object' ? message.senderId : null;
 
-  // Call log entries render as a centered system line, not a bubble.
-  if (message.messageType === 'call' && !message.deletedAt) {
+  // Call log entries and system notices (e.g. disappearing-messages changes)
+  // render as a centered system line, not a bubble.
+  if ((message.messageType === 'call' || message.messageType === 'system') && !message.deletedAt) {
     return (
       <div className="msg-row system">
         <div className="system-bubble">
@@ -151,6 +154,15 @@ export default function MessageBubble({
             <img className="msg-image" src={message.attachmentUrl} alt="attachment" />
           </a>
         )}
+        {message.messageType === 'video' && message.attachmentUrl && (
+          <video
+            className="msg-video"
+            src={message.attachmentUrl}
+            controls
+            playsInline
+            preload="metadata"
+          />
+        )}
         {message.messageType === 'file' && message.attachmentUrl && (
           <a className="msg-file" href={message.attachmentUrl} target="_blank" rel="noreferrer">
             <span className="msg-file-icon">📄</span>
@@ -179,7 +191,7 @@ export default function MessageBubble({
             <LinkifiedText text={message.content} linkFlags={message.linkFlags} />
           </p>
         )}
-        {message.content && message.messageType === 'image' && (
+        {message.content && (message.messageType === 'image' || message.messageType === 'video') && (
           <p className="bubble-text">
             <LinkifiedText text={message.content} linkFlags={message.linkFlags} />
           </p>

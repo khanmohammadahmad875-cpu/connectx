@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, uploadFile } from '../../services/api';
 import Avatar from '../Avatar';
+import ImageCropper from '../ImageCropper';
 
 export default function NewChatModal({ onClose, onCreated, initialMode = 'private' }) {
   const [mode, setMode] = useState(initialMode); // 'private' | 'group' | 'channel' | 'community'
@@ -66,10 +67,9 @@ export default function NewChatModal({ onClose, onCreated, initialMode = 'privat
     );
   }
 
-  async function pickGroupImage(e) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
+  const [cropFile, setCropFile] = useState(null);
+
+  async function uploadGroupImage(file) {
     setUploading(true);
     setError('');
     try {
@@ -81,6 +81,15 @@ export default function NewChatModal({ onClose, onCreated, initialMode = 'privat
     } finally {
       setUploading(false);
     }
+  }
+
+  function pickGroupImage(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    // Images are cropped first (item 4); anything else keeps the old path.
+    if (file.type.startsWith('image/')) setCropFile(file);
+    else uploadGroupImage(file);
   }
 
   async function createGroup() {
@@ -372,6 +381,16 @@ export default function NewChatModal({ onClose, onCreated, initialMode = 'privat
           </>
         )}
       </div>
+      {cropFile && (
+        <ImageCropper
+          file={cropFile}
+          onCancel={() => setCropFile(null)}
+          onDone={(cropped) => {
+            setCropFile(null);
+            uploadGroupImage(cropped);
+          }}
+        />
+      )}
     </div>
   );
 }

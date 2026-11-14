@@ -14,6 +14,19 @@ import {
 } from '../../utils/format';
 import { wallpaperLayerStyle } from '../../utils/wallpapers';
 import { timeInZone } from '../../utils/timezones';
+import WeatherScene from '../WeatherScene';
+import { useLiveWeather } from '../../hooks/useLiveWeather';
+
+// Best-effort video duration (seconds) for message metadata (item 10).
+function measureVideoDuration(url) {
+  return new Promise((resolve) => {
+    const v = document.createElement('video');
+    v.preload = 'metadata';
+    v.onloadedmetadata = () => resolve(Number.isFinite(v.duration) ? v.duration : 0);
+    v.onerror = () => resolve(0);
+    v.src = url;
+  });
+}
 
 export default function ChatWindow({
   conversation,
@@ -123,11 +136,21 @@ export default function ChatWindow({
     setError('');
     try {
       const result = await uploadFile(file);
-      await onSend({
-        content: result.messageType === 'file' ? result.originalName : '',
-        messageType: result.messageType,
-        attachmentUrl: result.url,
-      });
+      if (result.messageType === 'video') {
+        const duration = await measureVideoDuration(result.url);
+        await onSend({
+          content: '',
+          messageType: 'video',
+          attachmentUrl: result.url,
+          videoMeta: { duration, size: file.size, mime: file.type },
+        });
+      } else {
+        await onSend({
+          content: result.messageType === 'file' ? result.originalName : '',
+          messageType: result.messageType,
+          attachmentUrl: result.url,
+        });
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -149,10 +172,16 @@ export default function ChatWindow({
 
   const wpLayer = wallpaperLayerStyle(wallpaperPref);
   const wpDim = wallpaperPref ? wallpaperPref.dim ?? 45 : 45;
+  const isLiveWallpaper = wallpaperPref?.wallpaper === 'live-weather';
+  const liveWeather = useLiveWeather();
+  const showScene = isLiveWallpaper && !!liveWeather;
 
   return (
     <section className="chat-window">
       {wpLayer && <div className="wallpaper-layer" style={wpLayer} aria-hidden="true" />}
+      {showScene && (
+        <WeatherScene scene={liveWeather.scene} className="wallpaper-layer scene-layer" />
+      )}
       <header className="chat-header">
         <button className="icon-btn back-btn" onClick={onBack}>←</button>
         <button className="chat-header-main" onClick={onToggleInfo}>
@@ -217,7 +246,11 @@ export default function ChatWindow({
       <div
         className="messages"
         ref={scrollRef}
-        style={wpLayer ? { backgroundColor: `rgba(9, 14, 26, ${wpDim / 100})` } : undefined}
+        style={
+          wpLayer || showScene
+            ? { backgroundColor: `color-mix(in srgb, var(--bg) ${wpDim}%, transparent)` }
+            : undefined
+        }
       >
         {hasMore && (
           <button
@@ -318,7 +351,7 @@ export default function ChatWindow({
             ref={fileRef}
             type="file"
             hidden
-            accept="image/jpeg,image/png,image/gif,image/webp,.pdf,.txt,.doc,.docx"
+            accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,.pdf,.txt,.doc,.docx"
             onChange={handleFile}
           />
           {!isChannel && (
