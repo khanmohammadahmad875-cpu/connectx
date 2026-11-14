@@ -4,8 +4,67 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // drag to reposition, zoom slider + wheel + pinch, rotate, Cancel/Done.
 // Pure canvas, no dependency. onDone receives a 512×512 JPEG File that flows
 // through the existing uploads pipeline exactly like the original file.
+//
+// Decoding a phone photo is NOT a single attempt: Android WebView pickers
+// hand back files with empty/odd MIME types and camera originals can be far
+// too large to decode at natural size. The loader below tries, in order:
+// (a) createImageBitmap (downscaling anything over MAX_SIDE via a canvas),
+// (b) Image + object URL, (c) FileReader data URL. If every strategy fails
+// (e.g. a HEIC photo Chromium cannot decode at all) the user is offered the
+// original file as-is instead of a dead end.
 const VIEW = 300;
 const OUT = 512;
+const MAX_SIDE = 2048;
+
+function imageFromURL(url) {
+  return new Promise((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error('image decode failed'));
+    el.src = url;
+  });
+}
+
+async function loadViaObjectURL(blob) {
+  const url = URL.createObjectURL(blob);
+  try {
+    return { el: await imageFromURL(url), url };
+  } catch (err) {
+    URL.revokeObjectURL(url);
+    throw err;
+  }
+}
+
+// Strategy (a): createImageBitmap. Huge images are re-encoded at MAX_SIDE
+// through an intermediate canvas so the crop UI never holds a 50 MP source.
+async function decodeWithBitmap(file) {
+  const bmp = await createImageBitmap(file);
+  try {
+    const longest = Math.max(bmp.width, bmp.height);
+    if (longest <= MAX_SIDE) return await loadViaObjectURL(file);
+    const s = MAX_SIDE / longest;
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(bmp.width * s));
+    c.height = Math.max(1, Math.round(bmp.height * s));
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise((res) => c.toBlob(res, 'image/jpeg', 0.92));
+    if (!blob) throw new Error('downscale failed');
+    return await loadViaObjectURL(blob);
+  } finally {
+    if (bmp.close) bmp.close();
+  }
+}
+
+// Strategy (c): FileReader → data URL → Image.
+async function decodeWithReader(file) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('file read failed'));
+    reader.readAsDataURL(file);
+  });
+  return { el: await imageFromURL(dataUrl), url: '' };
+}
 
 export default function ImageCropper({ file, onCancel, onDone }) {
   const [img, setImg] = useState(null); // { el, w, h } current (possibly rotated) source
@@ -13,27 +72,44 @@ export default function ImageCropper({ file, onCancel, onDone }) {
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [failed, setFailed] = useState(false); // every decode strategy failed
   const pointers = useRef(new Map());
   const pinchStart = useRef(null);
   const viewRef = useRef(null);
 
+  // The component is mounted fresh for each picked file at every call site,
+  // so state starts clean; the decode chain below resolves asynchronously.
   useEffect(() => {
-    let url = '';
     let cancelled = false;
-    const el = new Image();
-    url = URL.createObjectURL(file);
-    el.onload = () => {
-      if (!cancelled) {
-        setImg({ el, w: el.naturalWidth, h: el.naturalHeight });
-        setZoom(1);
-        setOffset({ x: 0, y: 0 });
+    let liveUrl = '';
+    (async () => {
+      const attempts = [];
+      if (typeof createImageBitmap === 'function') {
+        attempts.push(() => decodeWithBitmap(file));
       }
-    };
-    el.onerror = () => { if (!cancelled) setError('Could not read that image'); };
-    el.src = url;
+      attempts.push(() => loadViaObjectURL(file));
+      attempts.push(() => decodeWithReader(file));
+      for (const attempt of attempts) {
+        try {
+          const { el, url } = await attempt();
+          if (cancelled) {
+            if (url) URL.revokeObjectURL(url);
+            return;
+          }
+          liveUrl = url;
+          setImg({ el, w: el.naturalWidth, h: el.naturalHeight });
+          setZoom(1);
+          setOffset({ x: 0, y: 0 });
+          return;
+        } catch {
+          /* fall through to the next decode strategy */
+        }
+      }
+      if (!cancelled) setFailed(true);
+    })();
     return () => {
       cancelled = true;
-      if (url) URL.revokeObjectURL(url);
+      if (liveUrl) URL.revokeObjectURL(liveUrl);
     };
   }, [file]);
 
@@ -149,45 +225,61 @@ export default function ImageCropper({ file, onCancel, onDone }) {
     <div className="modal-backdrop cropper-backdrop" role="dialog" aria-modal="true" aria-label="Crop photo">
       <div className="modal-card cropper-card">
         <h3 className="cropper-title">Crop photo</h3>
-        <div
-          ref={viewRef}
-          className="cropper-view"
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={endPointer}
-          onPointerCancel={endPointer}
-          onWheel={onWheel}
-        >
-          {img && (
-            <img
-              src={img.el.src}
-              alt=""
-              draggable={false}
-              className="cropper-img"
-              style={{
-                width: dispW,
-                height: dispH,
-                transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px))`,
-              }}
-            />
-          )}
-          <div className="cropper-mask" aria-hidden="true" />
-        </div>
-        <label className="cropper-zoom">
-          <span>Zoom</span>
-          <input
-            type="range"
-            min="1"
-            max="3"
-            step="0.01"
-            value={zoom}
-            onChange={(e) => {
-              const next = Number(e.target.value);
-              setZoom(next);
-              setOffset((o) => clampOffset(o, next));
-            }}
-          />
-        </label>
+        {failed ? (
+          <div className="cropper-fallback">
+            <p className="form-error">This photo's format couldn't be opened for cropping.</p>
+            <p className="info-sub">You can still upload the photo as-is, without cropping it.</p>
+            <button type="button" className="btn primary" onClick={() => onDone(file)}>
+              Upload original photo
+            </button>
+          </div>
+        ) : (
+          <>
+            <div
+              ref={viewRef}
+              className="cropper-view"
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={endPointer}
+              onPointerCancel={endPointer}
+              onWheel={onWheel}
+            >
+              {img ? (
+                <img
+                  src={img.el.src}
+                  alt=""
+                  draggable={false}
+                  className="cropper-img"
+                  style={{
+                    width: dispW,
+                    height: dispH,
+                    transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px))`,
+                  }}
+                />
+              ) : (
+                <p className="cropper-loading">Loading photo…</p>
+              )}
+              <div className="cropper-mask" aria-hidden="true" />
+            </div>
+            {img && (
+              <label className="cropper-zoom">
+                <span>Zoom</span>
+                <input
+                  type="range"
+                  min="1"
+                  max="3"
+                  step="0.01"
+                  value={zoom}
+                  onChange={(e) => {
+                    const next = Number(e.target.value);
+                    setZoom(next);
+                    setOffset((o) => clampOffset(o, next));
+                  }}
+                />
+              </label>
+            )}
+          </>
+        )}
         {error && <p className="form-error">{error}</p>}
         <div className="cropper-actions">
           <button type="button" className="btn ghost" onClick={rotate} disabled={!img || busy}>↻ Rotate</button>

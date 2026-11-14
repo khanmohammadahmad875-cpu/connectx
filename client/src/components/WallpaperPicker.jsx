@@ -53,7 +53,7 @@ export default function WallpaperPicker({ wallpaper, customWallpaperUrl, dim, on
         ref={fileRef}
         type="file"
         hidden
-        accept="image/jpeg,image/png,image/gif,image/webp"
+        accept="image/*"
         onChange={pickCustom}
       />
       <div className="wp-actions">
