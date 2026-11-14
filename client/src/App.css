@@ -3495,6 +3495,28 @@ a.mini-btn { text-decoration: none; display: inline-flex; align-items: center; }
   border-radius: 10px; font-size: 13px; max-width: 86%; text-align: center; margin: 0;
 }
 
+/* --- Mobile fit guard: the page must never scroll sideways on a phone.
+   overflow-x: clip (not hidden) so fixed/sticky children keep working. --- */
+html, body { overflow-x: clip; }
+img, video, canvas { max-width: 100%; }
+
+/* --- OTP code boxes (password reset) --- */
+.otp-row { display: flex; gap: 8px; justify-content: center; margin: 14px 0 16px; }
+.otp-box {
+  width: 46px; height: 56px; text-align: center;
+  font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums;
+  border-radius: 14px; border: 1.5px solid rgba(140, 180, 165, 0.55);
+  background: rgba(255, 255, 255, 0.65); color: #0c3b2a;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 6px 16px rgba(9, 60, 44, 0.10);
+}
+.otp-box:focus { outline: 2px solid #0aa06e; outline-offset: 1px; background: #fff; }
+.linklike {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: #0b8a5f; font-weight: 700; font-size: inherit; text-decoration: underline;
+}
+.linklike:disabled { opacity: 0.6; cursor: default; }
+
 /* --- Call flash light: real torch on the back camera; on the front
    camera a bright screen glow (phones have no front flash LED). --- */
 .call-screenlight {
