@@ -99,7 +99,7 @@ export default function Home() {
 
   return (
     <div className={`dash-shell ${ambientScene ? 'scene-on' : ''}`}>
-      {ambientScene && <WeatherScene scene={ambientScene} className="dash-scene" />}
+      {ambientScene && <WeatherScene scene={ambientScene} night={liveWeather ? !liveWeather.isDay : false} className="dash-scene" />}
       <header className="dash-header">
         <div className="brand">
           <span className="brand-mark">CX</span>

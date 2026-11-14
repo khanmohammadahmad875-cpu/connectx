@@ -758,7 +758,7 @@ export default function Chat() {
     <CallProvider>
     <div className={`chat-shell ${activeId ? 'has-active' : ''}`}>
       <aside className={`sidebar ${ambientScene ? 'ambient' : ''}`}>
-        {ambientScene && <WeatherScene scene={ambientScene} className="sidebar-scene" />}
+        {ambientScene && <WeatherScene scene={ambientScene} night={liveWeather ? !liveWeather.isDay : false} className="sidebar-scene" />}
         <div className="sidebar-header">
           <div className="brand">
             <span className="brand-mark">CX</span>

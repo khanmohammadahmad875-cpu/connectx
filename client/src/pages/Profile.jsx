@@ -217,7 +217,7 @@ export default function Profile() {
           <div className="settings-banner-wrap">
             <div className="settings-banner">
               {liveWeather && prefs?.liveWeatherBackground !== false && (
-                <WeatherScene scene={liveWeather.scene} className="settings-banner-scene" />
+                <WeatherScene scene={liveWeather.scene} night={!liveWeather.isDay} className="settings-banner-scene" />
               )}
             </div>
             <button className="settings-profile" onClick={() => setView('edit')}>
