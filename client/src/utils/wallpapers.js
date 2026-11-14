@@ -52,6 +52,7 @@ export const DEFAULT_PREFS = {
   notificationPreviews: true,
   soundAlerts: true,
   defaultDisappearingDuration: 0,
+  reelInterests: [],
 };
 
 // The stored key 'default' is the untouched system default (the server has
