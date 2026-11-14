@@ -2803,6 +2803,48 @@ async function main() {
         body: { token: tokenMatch ? tokenMatch[1] : 'y'.repeat(64), newPassword: 'Another1!' },
       });
       check('account: a reset token cannot be reused (400)', resetReuse.status === 400);
+
+      // --- OTP scene: the same email's 6-digit code as an alternative ----
+      const otpReg = await req2('POST', '/api/auth/register', {
+        body: { username: 'otpu', email: 'otpu@spam.test', password: 'Password1!' },
+      });
+      check('otp: reset user registers on the isolated server', otpReg.status === 201);
+      const outBeforeOtp = server2Out.length;
+      await req2('POST', '/api/auth/forgot-password', { body: { email: 'otpu@spam.test' } });
+      await new Promise((r) => setTimeout(r, 400));
+      const codeMatch = server2Out
+        .slice(outBeforeOtp)
+        .match(/Password reset code for otpu@spam\.test: (\d{6})/);
+      check('otp: forgot-password issued a 6-digit code (dev console)', !!codeMatch);
+      const realCode = codeMatch ? codeMatch[1] : '999999';
+      const wrongCode = realCode === '000000' ? '111111' : '000000';
+      const otpWrong = await req2('POST', '/api/auth/verify-reset-otp', {
+        body: { email: 'otpu@spam.test', code: wrongCode },
+      });
+      check('otp: a wrong code is rejected (400)', otpWrong.status === 400);
+      const otpOkRes = await req2('POST', '/api/auth/verify-reset-otp', {
+        body: { email: 'otpu@spam.test', code: realCode },
+      });
+      const otpToken =
+        otpOkRes.data && typeof otpOkRes.data.resetToken === 'string'
+          ? otpOkRes.data.resetToken
+          : '';
+      check(
+        'otp: the right code returns a one-time reset token',
+        otpOkRes.status === 200 && otpToken.length === 64
+      );
+      const otpReset = await req2('POST', '/api/auth/reset-password', {
+        body: { token: otpToken || 'z'.repeat(64), newPassword: 'OtpNew1!' },
+      });
+      check('otp: the exchanged token resets the password', otpReset.status === 200);
+      const otpLogin = await req2('POST', '/api/auth/login', {
+        body: { email: 'otpu@spam.test', password: 'OtpNew1!' },
+      });
+      check('otp: login works with the OTP-reset password', otpLogin.status === 200);
+      const otpReuse = await req2('POST', '/api/auth/verify-reset-otp', {
+        body: { email: 'otpu@spam.test', code: realCode },
+      });
+      check('otp: a used code cannot be verified again (400)', otpReuse.status === 400);
     } finally {
       server2.kill('SIGTERM');
     }
