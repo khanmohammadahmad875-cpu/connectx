@@ -25,6 +25,7 @@ export function CallProvider({ children }) {
   const [call, setCall] = useState(null); // { callId, conversationId, callType, peer }
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
+  const [facingMode, setFacingMode] = useState('user'); // 'user' front | 'environment' back
   const [durationSec, setDurationSec] = useState(0);
   const [notice, setNotice] = useState('');
   const [localStream, setLocalStream] = useState(null);
@@ -32,6 +33,7 @@ export function CallProvider({ children }) {
 
   const pcRef = useRef(null);
   const localStreamRef = useRef(null);
+  const facingRef = useRef('user');
   const pendingIceRef = useRef([]);
   const callRef = useRef(null);
   callRef.current = call;
@@ -63,6 +65,8 @@ export function CallProvider({ children }) {
     setRemoteStream(null);
     setMuted(false);
     setCameraOff(false);
+    setFacingMode('user');
+    facingRef.current = 'user';
     setDurationSec(0);
     setCall(null);
     setStatus('idle');
@@ -90,9 +94,21 @@ export function CallProvider({ children }) {
       pc.ontrack = (e) => {
         if (e.streams && e.streams[0]) setRemoteStream(e.streams[0]);
       };
+      pc.oniceconnectionstatechange = () => {
+        // Media could not pass on this network at all (normally fixed by
+        // the TURN relay): end cleanly with an explanation instead of
+        // sitting on a silent "ongoing" call forever.
+        if (pc.iceConnectionState === 'failed') {
+          if (socket && activeCall.callId) {
+            socket.emit('call_end', { callId: activeCall.callId });
+          }
+          cleanup();
+          setNotice('Call could not connect on this network. Please try again.');
+        }
+      };
       return pc;
     },
-    []
+    [cleanup]
   );
 
   const flushIce = useCallback(async () => {
@@ -225,6 +241,39 @@ export function CallProvider({ children }) {
     setCameraOff(next);
   }, [cameraOff]);
 
+  // Flip between the front and back cameras mid-call: grab a fresh video
+  // track with the opposite facingMode and swap it into the peer
+  // connection's video sender, so the call never drops or renegotiates.
+  const switchCamera = useCallback(async () => {
+    const pc = pcRef.current;
+    const stream = localStreamRef.current;
+    if (!pc || !stream || !stream.getVideoTracks().length) return;
+    const next = facingRef.current === 'user' ? 'environment' : 'user';
+    try {
+      const fresh = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: next }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      });
+      const newTrack = fresh.getVideoTracks()[0];
+      if (!newTrack) return;
+      newTrack.enabled = !cameraOff;
+      const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
+      if (sender) await sender.replaceTrack(newTrack);
+      const old = stream.getVideoTracks()[0];
+      if (old) {
+        stream.removeTrack(old);
+        old.stop();
+      }
+      stream.addTrack(newTrack);
+      facingRef.current = next;
+      setFacingMode(next);
+      // A fresh MediaStream object so the preview <video> re-binds.
+      setLocalStream(new MediaStream(stream.getTracks()));
+    } catch (err) {
+      /* the other camera is unavailable on this device — stay as-is */
+    }
+  }, [cameraOff]);
+
   // --- Signalling listeners -------------------------------------------------------
   useEffect(() => {
     const socket = connectSocket();
@@ -313,6 +362,8 @@ export function CallProvider({ children }) {
     endCall,
     toggleMute,
     toggleCamera,
+    facingMode,
+    switchCamera,
   };
   return <CallContext.Provider value={value}>{children}</CallContext.Provider>;
 }

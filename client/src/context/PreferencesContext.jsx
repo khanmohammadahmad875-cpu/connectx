@@ -78,10 +78,30 @@ export function PreferencesProvider({ children }) {
   useEffect(() => {
     const root = document.documentElement;
     const sizes = { small: '13.5px', medium: '14.5px', large: '16.5px' };
-    root.style.setProperty('--msg-font-size', sizes[prefs?.fontSize] || sizes.medium);
+    root.style.setProperty(
+      '--msg-font-size',
+      prefs?.easyMode ? '17.5px' : sizes[prefs?.fontSize] || sizes.medium
+    );
     if (prefs?.animationsEnabled === false) root.dataset.animations = 'off';
     else delete root.dataset.animations;
-  }, [prefs?.fontSize, prefs?.animationsEnabled]);
+    if (prefs?.easyMode) root.dataset.easy = 'on';
+    else delete root.dataset.easy;
+  }, [prefs?.fontSize, prefs?.animationsEnabled, prefs?.easyMode]);
+
+  // App-wide font style (Settings → Accessibility): drives the --app-font
+  // CSS variable that the base body rule reads.
+  useEffect(() => {
+    const root = document.documentElement;
+    const stacks = {
+      default: "'Segoe UI', system-ui, -apple-system, Arial, sans-serif",
+      classic: "Georgia, 'Times New Roman', Times, serif",
+      modern: "'Trebuchet MS', 'Segoe UI', Verdana, sans-serif",
+      rounded: "Verdana, Geneva, Tahoma, sans-serif",
+      elegant: "'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif",
+      mono: "'Cascadia Code', Consolas, 'Courier New', monospace",
+    };
+    root.style.setProperty('--app-font', stacks[prefs?.fontFamily] || stacks.default);
+  }, [prefs?.fontFamily]);
 
   const save = useCallback(async (partial) => {
     const data = await api('/api/users/me/preferences', { method: 'PATCH', body: partial });
