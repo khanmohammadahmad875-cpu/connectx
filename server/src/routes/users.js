@@ -61,6 +61,13 @@ function serializePreferences(user) {
       timeZone: c.timeZone,
     })),
     clockFormat24h: p.clockFormat24h ?? false,
+    theme: p.theme ?? 'light',
+    liveWeatherBackground: p.liveWeatherBackground ?? true,
+    fontSize: p.fontSize ?? 'medium',
+    animationsEnabled: p.animationsEnabled ?? true,
+    notificationPreviews: p.notificationPreviews ?? true,
+    soundAlerts: p.soundAlerts ?? true,
+    defaultDisappearingDuration: p.defaultDisappearingDuration ?? 0,
   };
 }
 
@@ -105,6 +112,13 @@ const preferencesSchema = z.object({
     .max(20)
     .optional(),
   clockFormat24h: z.boolean().optional(),
+  theme: z.enum(['light', 'dark', 'system']).optional(),
+  liveWeatherBackground: z.boolean().optional(),
+  fontSize: z.enum(['small', 'medium', 'large']).optional(),
+  animationsEnabled: z.boolean().optional(),
+  notificationPreviews: z.boolean().optional(),
+  soundAlerts: z.boolean().optional(),
+  defaultDisappearingDuration: z.number().int().min(0).max(2592000).optional(),
 });
 
 router.patch('/me/preferences', validate(preferencesSchema), async (req, res, next) => {
@@ -571,7 +585,7 @@ router.post('/me/import', express.json({ limit: '5mb' }), async (req, res, next)
     // Preferences: merge the keys the export carries (never wipe others).
     if (data.preferences && typeof data.preferences === 'object') {
       if (!user.preferences) user.preferences = {};
-      for (const key of ['wallpaper', 'customWallpaperUrl', 'wallpaperDim', 'accentColor', 'clockFormat24h']) {
+      for (const key of ['wallpaper', 'customWallpaperUrl', 'wallpaperDim', 'accentColor', 'clockFormat24h', 'theme', 'liveWeatherBackground', 'fontSize', 'animationsEnabled', 'notificationPreviews', 'soundAlerts', 'defaultDisappearingDuration']) {
         if (data.preferences[key] !== undefined) user.preferences[key] = data.preferences[key];
       }
       for (const key of ['conversationWallpapers', 'weatherCities', 'clockCities']) {

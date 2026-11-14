@@ -1,7 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const { requireAuth } = require('../middleware/auth');
-const { upload, ALLOWED } = require('../middleware/upload');
+const { upload, ALLOWED, FILE_MAX_BYTES } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -12,6 +12,12 @@ router.post('/', requireAuth, upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No file received' });
     const kind = ALLOWED.get(req.file.mimetype) || 'file';
+    // Per-kind size cap: only video may exceed the standard 10 MB limit
+    // (video itself is capped at 64 MB by multer's ceiling).
+    if (kind !== 'video' && req.file.size > FILE_MAX_BYTES) {
+      fs.unlink(req.file.path, () => {});
+      return res.status(400).json({ message: 'File is too large (10 MB limit)' });
+    }
 
     const cloudConfigured =
       process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET;

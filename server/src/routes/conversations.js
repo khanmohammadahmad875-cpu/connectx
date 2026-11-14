@@ -7,7 +7,7 @@ const Message = require('../models/Message');
 const User = require('../models/User');
 const { requireAuth } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
-const { requireMembership } = require('../services/messageService');
+const { requireMembership, populateMessage, notExpired } = require('../services/messageService');
 const {
   assertConversationUnlocked,
   requestUnlocked,
@@ -37,6 +37,7 @@ async function serializeConversation(conv, viewerId) {
   obj.muted = myMembership ? myMembership.muted : false;
   // Per-user visibility state (Modules 19–21).
   obj.archived = myMembership ? !!myMembership.archived : false;
+  obj.pinned = myMembership ? !!myMembership.pinned : false;
   obj.locked = myMembership ? !!myMembership.locked : false;
   obj.hidden = myMembership ? !!myMembership.hidden : false;
   if (obj.type === 'channel') {
@@ -52,6 +53,7 @@ async function serializeConversation(conv, viewerId) {
       senderId: { $ne: viewerId },
       deletedAt: null,
       hiddenFor: { $ne: viewerId },
+      ...notExpired(),
     };
     if (myMembership.lastReadMessageId) {
       const lastRead = await Message.findById(myMembership.lastReadMessageId).select('createdAt');
@@ -64,10 +66,12 @@ async function serializeConversation(conv, viewerId) {
   // If the newest message is hidden for this viewer ("delete for me"), the
   // list preview should show their newest visible message instead.
   const lm = obj.lastMessage;
-  if (lm && (lm.hiddenFor || []).some((id) => id.toString() === viewerId.toString())) {
+  const lmExpired = lm && lm.expiresAt && new Date(lm.expiresAt).getTime() <= Date.now();
+  if (lm && (lmExpired || (lm.hiddenFor || []).some((id) => id.toString() === viewerId.toString()))) {
     const fallback = await Message.findOne({
       conversationId: conv._id,
       hiddenFor: { $ne: viewerId },
+      ...notExpired(),
     })
       .sort({ createdAt: -1 })
       .select('content senderId messageType createdAt deletedAt')
@@ -85,7 +89,7 @@ function populateConv(query) {
     )
     .populate({
       path: 'lastMessage',
-      select: 'content senderId messageType createdAt deletedAt hiddenFor',
+      select: 'content senderId messageType createdAt deletedAt hiddenFor expiresAt',
       populate: { path: 'senderId', select: 'username' },
     })
     .populate('admins', 'username');
@@ -130,6 +134,9 @@ router.post('/', validate(createSchema), async (req, res, next) => {
           participants: [me, otherId],
           createdBy: me,
           pairKey,
+          // The creator's default disappearing-message timer (Settings →
+          // Privacy) applies to conversations they start.
+          disappearingDurationSec: req.user.preferences?.defaultDisappearingDuration || 0,
         });
         await addMembers(conv._id, [me, otherId]);
       }
@@ -170,6 +177,7 @@ router.post('/', validate(createSchema), async (req, res, next) => {
       groupImage: req.body.groupImage || '',
       admins: [me],
       createdBy: me,
+      disappearingDurationSec: req.user.preferences?.defaultDisappearingDuration || 0,
     });
     await addMembers(conv._id, [me, ...memberIds], [me]);
     const populated = await populateConv(Conversation.findById(conv._id));
@@ -199,6 +207,9 @@ router.get('/', async (req, res, next) => {
     for (const conv of convs) {
       serialized.push(await serializeConversation(conv, req.user._id));
     }
+    // Pinned chats first (stable: the query already ordered by recency, and
+    // Array.sort is stable, so recency order is kept inside each group).
+    serialized.sort((a, b) => Number(b.pinned) - Number(a.pinned));
     return res.json({ conversations: serialized });
   } catch (err) {
     return next(err);
@@ -231,11 +242,20 @@ async function requireGroupAdmin(req, res) {
   return { membership, conv };
 }
 
+function disappearingLabel(sec) {
+  if (sec === 86400) return '24 hours';
+  if (sec === 604800) return '7 days';
+  if (sec % 86400 === 0) return `${sec / 86400} days`;
+  if (sec % 3600 === 0) return `${sec / 3600} hours`;
+  return `${sec} seconds`;
+}
+
 router.patch('/:id', validate(z.object({
   groupName: z.string().trim().min(1).max(80).optional(),
   groupImage: z.string().optional(),
   description: z.string().trim().max(500).optional(),
   muted: z.boolean().optional(),
+  disappearingDurationSec: z.number().int().min(0).max(2592000).optional(),
 })), async (req, res, next) => {
   try {
     const membership = await requireMembership(req.params.id, req.user._id);
@@ -243,6 +263,40 @@ router.patch('/:id', validate(z.object({
     if (req.body.muted !== undefined) {
       membership.muted = req.body.muted;
       await membership.save();
+    }
+    if (req.body.disappearingDurationSec !== undefined) {
+      // Disappearing messages: any member may change it in a private chat;
+      // in groups and channels only admins may (same rule as group edits).
+      if (conv.type !== 'private' && membership.role !== 'admin') {
+        return res.status(403).json({ message: 'Only admins can change disappearing messages' });
+      }
+      const nextSec = req.body.disappearingDurationSec;
+      if (nextSec !== (conv.disappearingDurationSec || 0)) {
+        conv.disappearingDurationSec = nextSec;
+        await conv.save();
+        // System notice in the chat itself (server-written 'system' type;
+        // it carries no expiry, so the record of the change stays visible).
+        const notice = await Message.create({
+          conversationId: conv._id,
+          senderId: req.user._id,
+          messageType: 'system',
+          content:
+            nextSec > 0
+              ? `${req.user.username} turned on disappearing messages: new messages will disappear after ${disappearingLabel(nextSec)}`
+              : `${req.user.username} turned off disappearing messages`,
+          readBy: [req.user._id],
+          deliveredTo: [req.user._id],
+        });
+        await Conversation.findByIdAndUpdate(conv._id, {
+          lastMessage: notice._id,
+          updatedAt: new Date(),
+        });
+        const io = req.app.get('io');
+        if (io) {
+          const populated = await populateMessage(Message.findById(notice._id));
+          io.to(`conv:${conv._id}`).emit('new_message', { message: populated });
+        }
+      }
     }
     if (
       req.body.groupName !== undefined ||
@@ -383,6 +437,30 @@ router.post('/:id/unarchive', async (req, res, next) => {
     membership.archived = false;
     await membership.save();
     return res.json({ ok: true, archived: false });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// --- Pin (WhatsApp-style polish) ----------------------------------------------
+// Per-user ordering only: pinning never affects other participants.
+router.post('/:id/pin', async (req, res, next) => {
+  try {
+    const membership = await requireMembership(req.params.id, req.user._id);
+    membership.pinned = true;
+    await membership.save();
+    return res.json({ ok: true, pinned: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+router.post('/:id/unpin', async (req, res, next) => {
+  try {
+    const membership = await requireMembership(req.params.id, req.user._id);
+    membership.pinned = false;
+    await membership.save();
+    return res.json({ ok: true, pinned: false });
   } catch (err) {
     return next(err);
   }

@@ -7,6 +7,7 @@ const {
   createMessage,
   requireMembership,
   populateMessage,
+  notExpired,
 } = require('../services/messageService');
 const {
   assertConversationUnlocked,
@@ -28,9 +29,11 @@ router.get('/:conversationId', async (req, res, next) => {
     );
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 30, 1), 100);
     // "Delete for me": messages this user hid never come back in their history.
+    // Disappearing messages: expired ones are filtered out of history too.
     const filter = {
       conversationId: req.params.conversationId,
       hiddenFor: { $ne: req.user._id },
+      ...notExpired(),
     };
     if (req.query.before) {
       const beforeMsg = await Message.findById(req.query.before).select('createdAt');
@@ -50,7 +53,7 @@ const createSchema = z.object({
   content: z.string().max(4000).optional().default(''),
   // 'call' and 'live_location' are intentionally absent: call messages are
   // server-only and live location starts through /api/live-location.
-  messageType: z.enum(['text', 'image', 'file', 'audio', 'poll', 'location']).optional().default('text'),
+  messageType: z.enum(['text', 'image', 'file', 'audio', 'video', 'poll', 'location']).optional().default('text'),
   attachmentUrl: z.string().optional().default(''),
   replyTo: z.string().nullable().optional(),
   clientMessageId: z.string().max(80).nullable().optional(),
@@ -65,6 +68,13 @@ const createSchema = z.object({
     .object({
       duration: z.number().min(0).max(3600).optional(),
       waveform: z.array(z.number()).max(64).optional(),
+    })
+    .optional(),
+  videoMeta: z
+    .object({
+      duration: z.number().min(0).max(86400).optional(),
+      size: z.number().min(0).max(64 * 1024 * 1024).optional(),
+      mime: z.string().max(100).optional(),
     })
     .optional(),
   poll: z
@@ -87,6 +97,7 @@ router.post('/', validate(createSchema), async (req, res, next) => {
       replyTo: req.body.replyTo || null,
       clientMessageId: req.body.clientMessageId || null,
       audioMeta: req.body.audioMeta || null,
+      videoMeta: req.body.videoMeta || null,
       poll: req.body.poll || null,
       location: req.body.location || null,
       unlocked: requestUnlocked(req),

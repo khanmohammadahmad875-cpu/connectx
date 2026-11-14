@@ -40,13 +40,13 @@ function serializeStatus(status, viewerId) {
 
 const createSchema = z
   .object({
-    type: z.enum(['image', 'text']),
+    type: z.enum(['image', 'video', 'text']),
     mediaUrl: z.string().max(2000).optional().default(''),
     text: z.string().max(700).optional().default(''),
     backgroundColor: z.string().max(32).optional().default('#2f7bff'),
   })
-  .refine((d) => (d.type === 'image' ? d.mediaUrl.trim().length > 0 : d.text.trim().length > 0), {
-    message: 'An image status needs mediaUrl and a text status needs text',
+  .refine((d) => (d.type === 'text' ? d.text.trim().length > 0 : d.mediaUrl.trim().length > 0), {
+    message: 'An image/video status needs mediaUrl and a text status needs text',
   });
 
 // Create a status; it expires exactly 24 hours from now.
@@ -56,7 +56,7 @@ router.post('/', validate(createSchema), async (req, res, next) => {
     const status = await Status.create({
       user: req.user._id,
       type: req.body.type,
-      mediaUrl: req.body.type === 'image' ? req.body.mediaUrl : '',
+      mediaUrl: req.body.type === 'text' ? '' : req.body.mediaUrl,
       text: req.body.type === 'text' ? req.body.text.trim() : '',
       backgroundColor: req.body.backgroundColor || '#2f7bff',
       expiresAt: new Date(now.getTime() + DAY_MS),

@@ -16,11 +16,21 @@ router.get('/', async (req, res, next) => {
       recipientId: req.user._id,
       conversationId: { $nin: lockedIds },
     };
-    const notifications = await Notification.find(filter)
+    const found = await Notification.find(filter)
       .sort({ createdAt: -1 })
       .limit(50)
       .populate('senderId', 'username profilePicture')
       .populate('messageId', 'content messageType');
+    // Settings → Notifications: users who turned message previews off get
+    // the notification without the message text (sender + type only).
+    const showPreviews = req.user.preferences?.notificationPreviews !== false;
+    const notifications = found.map((n) => {
+      const obj = n.toObject();
+      if (!showPreviews && obj.type === 'message' && obj.messageId) {
+        obj.messageId = { ...obj.messageId, content: '' };
+      }
+      return obj;
+    });
     const unreadCount = await Notification.countDocuments({
       ...filter,
       isRead: false,
