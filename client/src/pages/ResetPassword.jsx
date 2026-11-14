@@ -27,7 +27,7 @@ export default function ResetPassword() {
       <form className="auth-card" onSubmit={onSubmit}>
         <div className="brand center">
           <span className="brand-mark">CX</span>
-          <span className="brand-name">ConnectX</span>
+          <span className="brand-text"><span className="brand-name">ConnectX</span><span className="brand-sub">by Developer Mohammad Ahmad Khan</span></span>
         </div>
         <h1>Choose a new password</h1>
         {done ? (

@@ -269,6 +269,8 @@ export default function Profile() {
             />
           </div>
 
+          <p className="settings-footer">© 2026 ConnectX · by Developer Mohammad Ahmad Khan</p>
+
           <div className="profile-card danger-zone">
             <h3>Danger zone</h3>
             <p className="info-sub">Deactivating stops logins for this account. You can reactivate it later from the sign-in screen with your password.</p>
@@ -650,7 +652,8 @@ export default function Profile() {
             </div>
             <h3 className="about-name">ConnectX</h3>
             <p className="info-sub center-text">Version 3.0</p>
-            <p className="about-made">Made by Mohammad Ahmad Khan</p>
+            <p className="about-made">by Developer Mohammad Ahmad Khan</p>
+            <p className="info-sub center-text">© 2026 ConnectX — Mohammad Ahmad Khan. All rights reserved.</p>
             <h4 className="appearance-sub">Reporting</h4>
             <p className="info-sub">
               You can report any message or user: open the message's actions (or the chat's info

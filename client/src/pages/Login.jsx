@@ -72,7 +72,7 @@ export default function Login() {
         <form className="auth-card" onSubmit={onSubmitCode}>
           <div className="brand center">
             <span className="brand-mark">CX</span>
-            <span className="brand-name">ConnectX</span>
+            <span className="brand-text"><span className="brand-name">ConnectX</span><span className="brand-sub">by Developer Mohammad Ahmad Khan</span></span>
           </div>
           <h1>Two-factor authentication</h1>
           <p className="auth-sub">
@@ -118,7 +118,7 @@ export default function Login() {
       <form className="auth-card" onSubmit={onSubmit}>
         <div className="brand center">
           <span className="brand-mark">CX</span>
-          <span className="brand-name">ConnectX</span>
+          <span className="brand-text"><span className="brand-name">ConnectX</span><span className="brand-sub">by Developer Mohammad Ahmad Khan</span></span>
         </div>
         <h1>Welcome back</h1>
         <p className="auth-sub">Log in to continue to your messages.</p>

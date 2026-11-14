@@ -762,7 +762,7 @@ export default function Chat() {
         <div className="sidebar-header">
           <div className="brand">
             <span className="brand-mark">CX</span>
-            <span className="brand-name">ConnectX</span>
+            <span className="brand-text"><span className="brand-name">ConnectX</span><span className="brand-sub">by Developer Mohammad Ahmad Khan</span></span>
           </div>
           <div className="sidebar-actions">
             <button

@@ -203,7 +203,7 @@ export default function Calendar() {
       <header className="dash-header">
         <div className="brand">
           <span className="brand-mark">CX</span>
-          <span className="brand-name">ConnectX</span>
+          <span className="brand-text"><span className="brand-name">ConnectX</span><span className="brand-sub">by Developer Mohammad Ahmad Khan</span></span>
         </div>
         <nav className="dash-nav">
           <Link className="btn small ghost" to="/home">🏠 Home</Link>
