@@ -65,7 +65,9 @@ function serializePreferences(user) {
     theme: p.theme ?? 'light',
     liveWeatherBackground: p.liveWeatherBackground ?? true,
     fontSize: p.fontSize ?? 'medium',
+    fontFamily: p.fontFamily ?? 'default',
     animationsEnabled: p.animationsEnabled ?? true,
+    easyMode: p.easyMode ?? false,
     notificationPreviews: p.notificationPreviews ?? true,
     soundAlerts: p.soundAlerts ?? true,
     defaultDisappearingDuration: p.defaultDisappearingDuration ?? 0,
@@ -117,7 +119,9 @@ const preferencesSchema = z.object({
   theme: z.enum(['light', 'dark', 'system']).optional(),
   liveWeatherBackground: z.boolean().optional(),
   fontSize: z.enum(['small', 'medium', 'large']).optional(),
+  fontFamily: z.enum(['default', 'classic', 'modern', 'rounded', 'elegant', 'mono']).optional(),
   animationsEnabled: z.boolean().optional(),
+  easyMode: z.boolean().optional(),
   notificationPreviews: z.boolean().optional(),
   soundAlerts: z.boolean().optional(),
   defaultDisappearingDuration: z.number().int().min(0).max(2592000).optional(),
@@ -681,7 +685,7 @@ router.post('/me/import', express.json({ limit: '5mb' }), async (req, res, next)
     // Preferences: merge the keys the export carries (never wipe others).
     if (data.preferences && typeof data.preferences === 'object') {
       if (!user.preferences) user.preferences = {};
-      for (const key of ['wallpaper', 'customWallpaperUrl', 'wallpaperDim', 'accentColor', 'clockFormat24h', 'theme', 'liveWeatherBackground', 'fontSize', 'animationsEnabled', 'notificationPreviews', 'soundAlerts', 'defaultDisappearingDuration']) {
+      for (const key of ['wallpaper', 'customWallpaperUrl', 'wallpaperDim', 'accentColor', 'clockFormat24h', 'theme', 'liveWeatherBackground', 'fontSize', 'fontFamily', 'animationsEnabled', 'easyMode', 'notificationPreviews', 'soundAlerts', 'defaultDisappearingDuration']) {
         if (data.preferences[key] !== undefined) user.preferences[key] = data.preferences[key];
       }
       for (const key of ['conversationWallpapers', 'weatherCities', 'clockCities', 'reelInterests']) {
