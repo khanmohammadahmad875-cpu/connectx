@@ -3859,3 +3859,18 @@ label.azan-setrow { cursor: default; }
 @media (max-width: 760px) {
   .chat-fab { position: fixed !important; right: 16px !important; left: auto !important; bottom: 108px; z-index: 940; }
 }
+
+/* Reels sound toggle is a real button now (it was plain text before,
+   so tapping "Tap for sound" did nothing by itself). */
+button.reel-sound-hint {
+  display: inline-block;
+  margin-top: 6px;
+  background: rgba(0, 0, 0, .38);
+  border: 1px solid rgba(255, 255, 255, .4);
+  color: #fff;
+  border-radius: 999px;
+  padding: 5px 14px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11.5px;
+}
