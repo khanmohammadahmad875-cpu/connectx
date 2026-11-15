@@ -1036,18 +1036,34 @@ a:hover {
   border-radius: 20px;
   padding: 0 5px;
 }
+/* The notifications panel is a fixed sheet with its own dim backdrop —
+   as an anchored absolute dropdown inside the animated glass sidebar it
+   rendered as a ghost overlay bleeding into the chat list on phones. */
+.bell-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1240;
+  background: rgba(0, 0, 0, 0.35);
+}
 .bell-dropdown {
-  position: absolute;
-  top: 42px;
-  right: 0;
-  width: 330px;
-  max-height: 420px;
-  overflow-y: auto;
+  position: fixed;
+  top: calc(64px + env(safe-area-inset-top));
+  right: 12px;
+  width: min(360px, calc(100vw - 24px));
+  max-height: min(70dvh, 560px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  z-index: 60;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+  border-radius: 16px;
+  z-index: 1250;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+.bell-list {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 .bell-head {
   display: flex;
@@ -1620,9 +1636,6 @@ a:hover {
   }
   .bubble {
     max-width: 82%;
-  }
-  .bell-dropdown {
-    width: min(330px, 88vw);
   }
 }
 
