@@ -1,8 +1,8 @@
-// Floating 3D navigation dock (polish item 11b): seven raised destinations —
-// Home, Chats, Status, Reels, Communities, Groups, Calls — shared by the
-// mobile bottom dock and the desktop sidebar nav so both use one 3D
+// Floating 3D navigation dock (polish item 11b): eight raised destinations —
+// Home, Chats, Status, Reels, Posts, Communities, Groups, Calls — shared by
+// the mobile bottom dock and the desktop sidebar nav so both use one 3D
 // language. "Groups" is the chat list with the Groups filter applied (no
-// new page); "Reels" is the /reels page.
+// new page); "Reels" is the /reels page and "Posts" the /posts page.
 export const NAV_ITEMS = [
   {
     key: 'home',
@@ -37,6 +37,15 @@ export const NAV_ITEMS = [
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <rect x="3" y="5" width="18" height="14" rx="3.5" /><path d="M10.3 9.3v5.4c0 .8.9 1.3 1.6.9l4.3-2.7c.6-.4.6-1.4 0-1.8l-4.3-2.7c-.7-.4-1.6.1-1.6.9Z" fill="currentColor" stroke="none" />
+      </svg>
+    ),
+  },
+  {
+    key: 'posts',
+    label: 'Posts',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="16" rx="3" /><rect x="6.5" y="7.5" width="5" height="5" rx="1" /><path d="M14.5 8.5H18M14.5 11.5H18M6.5 16h11" />
       </svg>
     ),
   },
