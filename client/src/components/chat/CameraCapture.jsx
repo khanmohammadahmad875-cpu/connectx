@@ -35,14 +35,28 @@ export default function CameraCapture({ onPhoto, onClose }) {
       stop();
       setError('');
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            facingMode: { ideal: mode },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        });
+        // Exact facingMode first: with only `ideal`, Android WebView often
+        // hands back the front camera again when flipping to the back.
+        let stream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+              facingMode: { exact: mode },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+          });
+        } catch (exactErr) {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+              facingMode: { ideal: mode },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+          });
+        }
         streamRef.current = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
         // Flash (torch) lives on the video track; most front cameras and
