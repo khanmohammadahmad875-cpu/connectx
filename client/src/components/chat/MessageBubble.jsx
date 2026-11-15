@@ -98,6 +98,7 @@ export default function MessageBubble({
 }) {
   const [showPicker, setShowPicker] = useState(false);
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
+  const [viewingImage, setViewingImage] = useState(false);
   const sender = typeof message.senderId === 'object' ? message.senderId : null;
 
   // Call log entries and system notices (e.g. disappearing-messages changes)
@@ -150,9 +151,48 @@ export default function MessageBubble({
         )}
 
         {message.messageType === 'image' && message.attachmentUrl && (
-          <a href={message.attachmentUrl} target="_blank" rel="noreferrer">
-            <img className="msg-image" src={message.attachmentUrl} alt="attachment" />
-          </a>
+          <>
+            <button
+              type="button"
+              className="msg-image-btn"
+              onClick={() => setViewingImage(true)}
+              aria-label="View photo full screen"
+            >
+              <img className="msg-image" src={message.attachmentUrl} alt="attachment" />
+            </button>
+            {viewingImage && (
+              <div
+                className="img-viewer"
+                role="dialog"
+                aria-modal="true"
+                onClick={() => setViewingImage(false)}
+              >
+                <img
+                  className="img-viewer-img"
+                  src={message.attachmentUrl}
+                  alt="attachment full view"
+                />
+                <button
+                  type="button"
+                  className="img-viewer-close"
+                  onClick={() => setViewingImage(false)}
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+                <a
+                  className="img-viewer-save"
+                  href={message.attachmentUrl}
+                  download
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  ⬇ Save
+                </a>
+              </div>
+            )}
+          </>
         )}
         {message.messageType === 'video' && message.attachmentUrl && (
           <video
