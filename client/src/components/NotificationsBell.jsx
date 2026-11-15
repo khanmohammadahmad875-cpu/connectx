@@ -24,7 +24,9 @@ export default function NotificationsBell({ notifications, unreadCount, onOpenCo
         {unreadCount > 0 && <span className="bell-badge">{unreadCount}</span>}
       </button>
       {open && (
-        <div className="bell-dropdown">
+        <>
+          <div className="bell-backdrop" onClick={() => setOpen(false)} />
+          <div className="bell-dropdown">
           <div className="bell-head">
             <strong>Notifications</strong>
             {unreadCount > 0 && (
@@ -60,7 +62,8 @@ export default function NotificationsBell({ notifications, unreadCount, onOpenCo
               </button>
             ))}
           </div>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
