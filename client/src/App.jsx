@@ -13,6 +13,7 @@ import Home from './pages/Home';
 // downloads the shell + login + chat/home, so the app opens noticeably
 // faster on mobile data. The Suspense fallback is the branded splash.
 const Reels = lazy(() => import('./pages/Reels'));
+const Posts = lazy(() => import('./pages/Posts'));
 const Weather = lazy(() => import('./pages/Weather'));
 const Business = lazy(() => import('./pages/Business'));
 const Calendar = lazy(() => import('./pages/Calendar'));
@@ -87,6 +88,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <Reels />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/posts"
+              element={
+                <ProtectedRoute>
+                  <Posts />
                 </ProtectedRoute>
               }
             />
