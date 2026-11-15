@@ -540,7 +540,10 @@ export default function Chat() {
       if (data.message) setMessages((prev) => mergeMessage(prev, data.message));
       loadConversations();
     } catch (err) {
-      window.alert(err.message);
+      // No window.alert here: in the app shell it blocks the whole page
+      // behind a native dialog. The LocationPicker catches this and shows
+      // the error inside the sheet, with the button usable again.
+      throw err;
     }
   }
 
