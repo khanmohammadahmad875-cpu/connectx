@@ -1229,7 +1229,14 @@ a:hover {
   inset: 0;
   z-index: 1240;
   background: rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
 }
+/* Rendered through a portal at <body> level (NotificationsBell.jsx): the
+   bell lives inside .sidebar.ambient, whose backdrop-filter would
+   otherwise become the containing block for these fixed boxes and trap
+   the panel inside the sidebar's glass. The background must stay fully
+   opaque — a translucent panel here reads as ghost rows over the list. */
 .bell-dropdown {
   position: fixed;
   top: calc(64px + env(safe-area-inset-top));
@@ -1240,6 +1247,9 @@ a:hover {
   flex-direction: column;
   overflow: hidden;
   background: var(--panel-2);
+  opacity: 1;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   border: 1px solid var(--border);
   border-radius: 16px;
   z-index: 1250;
