@@ -18,11 +18,30 @@ export function setToken(token) {
   else localStorage.removeItem(TOKEN_KEY);
 }
 
+// Every request gets a hard timeout. A bare fetch can hang forever when
+// the server is mid-restart (a deploy swaps containers) or the network
+// stalls — the UI then sits on a spinner ("Sharing…") until Android kills
+// the page with an "Application failed to respond" dialog.
+async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      throw new Error('Server se jawab nahi aaya — internet check karke dobara try karo.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function refreshAccessToken() {
-  const res = await fetch(`${API_URL}/api/auth/refresh`, {
+  const res = await fetchWithTimeout(`${API_URL}/api/auth/refresh`, {
     method: 'POST',
     credentials: 'include',
-  });
+  }, 10000);
   if (!res.ok) return null;
   const data = await res.json();
   setToken(data.accessToken);
@@ -41,7 +60,7 @@ export async function api(path, { method = 'GET', body, headers: extraHeaders, u
     if (grant) headers['X-Unlock-Token'] = grant;
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetchWithTimeout(`${API_URL}${path}`, {
     method,
     headers,
     credentials: 'include',
@@ -66,12 +85,12 @@ export async function uploadFile(file) {
   const form = new FormData();
   form.append('file', file);
   const token = getToken();
-  const res = await fetch(`${API_URL}/api/uploads`, {
+  const res = await fetchWithTimeout(`${API_URL}/api/uploads`, {
     method: 'POST',
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     credentials: 'include',
     body: form,
-  });
+  }, 120000);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.message || 'Upload failed');
   return data; // { url, messageType, originalName }
