@@ -129,8 +129,11 @@ export function useLiveWeather() {
     };
   }, []);
 
-  // Current location wins when we have it; otherwise the last city set.
-  const loc = geoLoc || savedLoc;
+  // Current location wins when we have it; otherwise the last city set;
+  // otherwise Peshawar (the user's home region) — the living background
+  // must never be a blank white page.
+  const loc =
+    geoLoc || savedLoc || { lat: 34.0151, lon: 71.5249, name: 'Peshawar', country: 'Pakistan' };
   const key = loc ? `${loc.lat},${loc.lon}` : '';
   const [state, setState] = useState(() => (cache.key === key && cache.data ? cache.data : null));
 
