@@ -34,6 +34,11 @@ export default function Reels() {
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [error, setError] = useState('');
   const [muted, setMuted] = useState(true);
+  // The IntersectionObserver below is created once per reel-list change,
+  // so it must read the sound state from a ref — reading the state
+  // variable captured a stale `true` and silently re-muted the video
+  // right after the user tapped for sound.
+  const mutedRef = useRef(true);
   const [picked, setPicked] = useState([]); // first-visit interest selection
   const [savingInterests, setSavingInterests] = useState(false);
   const [skipped, setSkipped] = useState(false);
@@ -106,7 +111,7 @@ export default function Reels() {
           const video = videoRefs.current.get(id);
           if (entry.intersectionRatio >= 0.6) {
             if (video) {
-              video.muted = muted;
+              video.muted = mutedRef.current;
               video.play().catch(() => {});
             }
             if (!viewedRef.current.has(id)) {
@@ -134,6 +139,7 @@ export default function Reels() {
 
   // Keep the audible state in sync when the user toggles sound.
   useEffect(() => {
+    mutedRef.current = muted;
     videoRefs.current.forEach((video) => {
       video.muted = muted;
     });
@@ -352,7 +358,16 @@ export default function Reels() {
                   playsInline
                   muted={muted}
                   preload="metadata"
-                  onClick={() => setMuted((m) => !m)}
+                  onClick={(e) => {
+                    // Apply the new sound state to THIS video at once —
+                    // do not wait for effects while the observer may
+                    // also be touching the element.
+                    const next = !mutedRef.current;
+                    mutedRef.current = next;
+                    e.currentTarget.muted = next;
+                    if (!next) e.currentTarget.play().catch(() => {});
+                    setMuted(next);
+                  }}
                   ref={(el) => {
                     if (el) videoRefs.current.set(r._id, el);
                     else videoRefs.current.delete(r._id);
@@ -390,7 +405,13 @@ export default function Reels() {
                   <div className="reel-author-name">@{author.username || 'unknown'}</div>
                   <span className="reel-interest-chip">{r.interest}</span>
                   {r.caption && <p className="reel-caption">{r.caption}</p>}
-                  <span className="reel-sound-hint">{muted ? '🔇 Tap for sound' : '🔊 Sound on'}</span>
+                  <button
+                    type="button"
+                    className="reel-sound-hint"
+                    onClick={() => setMuted((m) => !m)}
+                  >
+                    {muted ? '🔇 Tap for sound' : '🔊 Sound on'}
+                  </button>
                 </div>
               </div>
             );
