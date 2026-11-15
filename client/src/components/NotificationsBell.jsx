@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../services/api';
 import { formatListTime } from '../utils/format';
 
@@ -23,9 +24,10 @@ export default function NotificationsBell({ notifications, unreadCount, onOpenCo
         🔔
         {unreadCount > 0 && <span className="bell-badge">{unreadCount}</span>}
       </button>
-      {open && (
-        <>
-          <div className="bell-backdrop" onClick={() => setOpen(false)} />
+      {open &&
+        createPortal(
+          <>
+            <div className="bell-backdrop" onClick={() => setOpen(false)} />
           <div className="bell-dropdown">
           <div className="bell-head">
             <strong>Notifications</strong>
@@ -61,10 +63,11 @@ export default function NotificationsBell({ notifications, unreadCount, onOpenCo
                 <span className="bell-time">{formatListTime(n.createdAt)}</span>
               </button>
             ))}
-          </div>
-          </div>
-        </>
-      )}
+            </div>
+            </div>
+          </>,
+          document.body
+        )}
     </div>
   );
 }
