@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { connectSocket, getSocket } from '../socket/socket';
+import { connectSocket, getSocket, waitForSocket } from '../socket/socket';
 import { RTC_CONFIG } from '../utils/rtc';
 
 // Voice/video calls (module 8) — 1-to-1 WebRTC with Socket.IO signalling.
@@ -43,8 +43,40 @@ export function CallProvider({ children }) {
   statusRef.current = status;
   const timerRef = useRef(null);
   const pendingOfferRef = useRef(null);
+  const nativeRingingRef = useRef(false);
+
+  // Android APK bridge: when the app is in the background, the native shell
+  // shows a real ringing screen (ringtone + full-screen call UI) so a call
+  // is not missed just because ConnectX was not open. No-op on the web.
+  const nativeRing = useCallback((payload) => {
+    try {
+      const bridge = window.ConnectXCalls;
+      if (bridge && typeof bridge.incomingCall === 'function' && document.hidden) {
+        nativeRingingRef.current = true;
+        bridge.incomingCall(
+          String((payload.caller && payload.caller.username) || 'ConnectX'),
+          String(payload.callId),
+          String(payload.callType || 'voice')
+        );
+      }
+    } catch (err) {
+      /* the in-app incoming UI still shows when the app is opened */
+    }
+  }, []);
+
+  const nativeRingStop = useCallback(() => {
+    if (!nativeRingingRef.current) return;
+    nativeRingingRef.current = false;
+    try {
+      const bridge = window.ConnectXCalls;
+      if (bridge && typeof bridge.callEnded === 'function') bridge.callEnded();
+    } catch (err) {
+      /* nothing to stop */
+    }
+  }, []);
 
   const cleanup = useCallback(() => {
+    nativeRingStop();
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
     if (pcRef.current) {
@@ -144,14 +176,18 @@ export function CallProvider({ children }) {
     async ({ conversationId, peer, callType }) => {
       if (statusRef.current !== 'idle') return;
       setNotice('');
-      const socket = getSocket();
-      if (!socket) {
-        setNotice('Not connected. Please try again.');
-        return;
-      }
       const provisional = { callId: null, conversationId, callType, peer };
       setCall(provisional);
       setStatus('outgoing');
+      // The socket may still be reconnecting right after the app wakes up;
+      // wait for it instead of failing instantly with "Not connected".
+      const socket = await waitForSocket(8000);
+      if (statusRef.current !== 'outgoing') return; // user cancelled meanwhile
+      if (!socket) {
+        cleanup();
+        setNotice('Not connected. Please check your internet and try again.');
+        return;
+      }
       try {
         const stream = await getMedia(callType);
         const pc = createPeer(provisional);
@@ -188,8 +224,9 @@ export function CallProvider({ children }) {
   // --- Incoming ----------------------------------------------------------------
   const acceptCall = useCallback(async () => {
     const active = callRef.current;
-    const socket = getSocket();
+    const socket = getSocket() || connectSocket();
     if (!active || !socket || statusRef.current !== 'incoming') return;
+    nativeRingStop();
     try {
       const stream = await getMedia(active.callType);
       const pc = createPeer(active);
@@ -206,7 +243,7 @@ export function CallProvider({ children }) {
       cleanup();
       setNotice('Could not access microphone/camera.');
     }
-  }, [cleanup, createPeer, flushIce, getMedia, startTimer]);
+  }, [cleanup, createPeer, flushIce, getMedia, startTimer, nativeRingStop]);
 
   const rejectCall = useCallback(() => {
     const active = callRef.current;
@@ -350,6 +387,7 @@ export function CallProvider({ children }) {
         peer: payload.caller,
       });
       setStatus('incoming');
+      nativeRing(payload);
     };
     const onAccepted = async ({ callId, answer }) => {
       const active = callRef.current;
@@ -398,7 +436,22 @@ export function CallProvider({ children }) {
       socket.off('call_ice', onIce);
       socket.off('call_ended', onEnded);
     };
-  }, [cleanup, flushIce, startTimer]);
+  }, [cleanup, flushIce, startTimer, nativeRing]);
+
+  // The Android shell's native ringing screen reports the user's choice
+  // through this hook (its Accept/Decline buttons bring the app forward and
+  // call it with the ringing call's id).
+  useEffect(() => {
+    window.__connectxCallAction = (action, callId) => {
+      const active = callRef.current;
+      if (!active || !callId || active.callId !== callId) return;
+      if (action === 'accept') acceptCall();
+      else if (action === 'decline') rejectCall();
+    };
+    return () => {
+      delete window.__connectxCallAction;
+    };
+  }, [acceptCall, rejectCall]);
 
   // Notices fade on their own.
   useEffect(() => {
