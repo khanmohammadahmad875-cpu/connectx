@@ -903,6 +903,38 @@ a:hover {
 .posts-more {
   align-self: center;
 }
+
+/* --- Call end button: unmissable -----------------------------------------
+   The end control used to be a small ✕ among the round controls, and the
+   user could not find how to cut a call. Now it is the big red hang-up
+   button (handset turned down) with a text label, in every call state. */
+.call-actions {
+  align-items: flex-start;
+}
+.call-end-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.call-btn.endcall {
+  width: 68px;
+  height: 68px;
+  background: linear-gradient(180deg, #f27676, #e5484d);
+  box-shadow: 0 10px 24px rgba(229, 72, 77, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.endcall-icon {
+  display: inline-block;
+  transform: rotate(135deg);
+  font-size: 30px;
+  line-height: 1;
+}
+.call-end-label {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
 .msg-file {
   display: flex;
   align-items: center;
