@@ -326,27 +326,84 @@ export function CallProvider({ children }) {
   // Flip between the front and back cameras mid-call: grab a fresh video
   // track with the opposite facingMode and swap it into the peer
   // connection's video sender, so the call never drops or renegotiates.
+  // Android WebView quirk that made this silently fail: while the front
+  // track is still alive, a new getUserMedia({ facingMode: ideal }) often
+  // hands back the SAME front camera. So the old track is stopped FIRST,
+  // the new side is requested with an exact facingMode, and if the track
+  // that arrives still reports the old side, the other camera is picked
+  // explicitly by deviceId. Any total failure restores the old camera and
+  // tells the user, instead of failing silently.
   const switchCamera = useCallback(async () => {
     const pc = pcRef.current;
     const stream = localStreamRef.current;
-    if (!pc || !stream || !stream.getVideoTracks().length) return;
-    const next = facingRef.current === 'user' ? 'environment' : 'user';
-    try {
-      const fresh = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: { facingMode: { ideal: next }, width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
-      const newTrack = fresh.getVideoTracks()[0];
-      if (!newTrack) return;
-      newTrack.enabled = !cameraOff;
-      const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
-      if (sender) await sender.replaceTrack(newTrack);
-      const old = stream.getVideoTracks()[0];
-      if (old) {
-        stream.removeTrack(old);
-        old.stop();
+    if (!stream || !stream.getVideoTracks().length) return;
+    const previous = facingRef.current;
+    const next = previous === 'user' ? 'environment' : 'user';
+    const grab = async (video) => {
+      const fresh = await navigator.mediaDevices.getUserMedia({ audio: false, video });
+      return fresh.getVideoTracks()[0] || null;
+    };
+    const swapIn = async (track) => {
+      track.enabled = !cameraOff;
+      if (pc) {
+        const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
+        if (sender) await sender.replaceTrack(track);
       }
-      stream.addTrack(newTrack);
+      stream.getVideoTracks().forEach((t) => {
+        if (t !== track) {
+          stream.removeTrack(t);
+          t.stop();
+        }
+      });
+      if (!stream.getVideoTracks().includes(track)) stream.addTrack(track);
+      // A fresh MediaStream object so the preview <video> re-binds.
+      setLocalStream(new MediaStream(stream.getTracks()));
+    };
+    try {
+      const old = stream.getVideoTracks()[0];
+      if (old) old.stop();
+      let newTrack = null;
+      try {
+        newTrack = await grab({
+          facingMode: { exact: next },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        });
+      } catch (err) {
+        newTrack = await grab({
+          facingMode: { ideal: next },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        });
+      }
+      const got = (newTrack && newTrack.getSettings && newTrack.getSettings()) || {};
+      if (newTrack && got.facingMode && got.facingMode !== next) {
+        try {
+          const cams = (await navigator.mediaDevices.enumerateDevices()).filter(
+            (d) => d.kind === 'videoinput'
+          );
+          const wanted = cams.find((d) =>
+            next === 'environment'
+              ? /back|rear|environment/i.test(d.label || '')
+              : /front|user/i.test(d.label || '')
+          );
+          if (wanted && wanted.deviceId && wanted.deviceId !== got.deviceId) {
+            const byId = await grab({
+              deviceId: { exact: wanted.deviceId },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            });
+            if (byId) {
+              newTrack.stop();
+              newTrack = byId;
+            }
+          }
+        } catch (err) {
+          /* keep the track we already have */
+        }
+      }
+      if (!newTrack) throw new Error('no track');
+      await swapIn(newTrack);
       facingRef.current = next;
       setFacingMode(next);
       // Keep the flash following the active camera: a back camera with a
@@ -364,10 +421,20 @@ export function CallProvider({ children }) {
           setNotice('Flash light is not available on this device.');
         }
       }
-      // A fresh MediaStream object so the preview <video> re-binds.
-      setLocalStream(new MediaStream(stream.getTracks()));
     } catch (err) {
-      /* the other camera is unavailable on this device — stay as-is */
+      // The old track was already stopped above — restore the previous
+      // camera so the call keeps its video, and say what happened.
+      try {
+        const restored = await grab({
+          facingMode: { ideal: previous },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        });
+        if (restored) await swapIn(restored);
+      } catch (restoreErr) {
+        /* nothing more can be done — the call audio continues */
+      }
+      setNotice('Camera switch nahi ho saka — dusra camera nahi mila.');
     }
   }, [cameraOff]);
 
