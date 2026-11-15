@@ -910,6 +910,31 @@ a:hover {
    button (handset turned down) with a text label, in every call state. */
 .call-actions {
   align-items: flex-start;
+  flex-wrap: wrap;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+/* On phone widths the five in-call controls (mute, camera, switch, flash,
+   end) were wider than the screen in one row: the row centred itself and
+   the End button spilled off the right edge — the user literally had no
+   button to cut an attended call. Shrink the controls on narrow screens
+   (and the wrap above guarantees nothing can ever leave the screen). */
+@media (max-width: 480px) {
+  .call-actions {
+    gap: 12px;
+  }
+  .call-btn {
+    width: 52px;
+    height: 52px;
+    font-size: 20px;
+  }
+  .call-btn.endcall {
+    width: 60px;
+    height: 60px;
+  }
+  .endcall-icon {
+    font-size: 26px;
+  }
 }
 .call-end-wrap {
   display: flex;
