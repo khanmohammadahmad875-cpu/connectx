@@ -2696,6 +2696,65 @@ async function main() {
     const rlDelOwn = await req('DELETE', `/api/reels/${techReel.data.reel._id}`, { token: B.token });
     check('reels: the author can delete their own reel', rlDelOwn.status === 200);
 
+    // --- Posts (Facebook-style feed) --------------------------------------------
+    const emptyPost = await req('POST', '/api/posts', {
+      token: A.token,
+      body: { text: '   ', imageUrl: '' },
+    });
+    check('posts: an empty post is rejected (400)', emptyPost.status === 400);
+
+    const post1 = await req('POST', '/api/posts', {
+      token: A.token,
+      body: { text: 'Assalamualaikum ConnectX!' },
+    });
+    check('posts: a text post is created with zeroed engagement',
+      post1.status === 201 && !!post1.data.post._id &&
+        post1.data.post.likesCount === 0 && post1.data.post.commentsCount === 0);
+
+    const imgForm = new FormData();
+    imgForm.append('file',
+      new Blob([Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex')], { type: 'image/png' }),
+      'pic.png');
+    const imgUp = await fetch(`${BASE}/api/uploads`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${B.token}` },
+      body: imgForm,
+    });
+    const imgUpData = await imgUp.json().catch(() => ({}));
+    check('posts: a photo uploads through the existing image pipeline',
+      imgUp.status === 201 && imgUpData.messageType === 'image' && !!imgUpData.url);
+
+    const post2 = await req('POST', '/api/posts', {
+      token: B.token,
+      body: { text: 'Meri pehli photo post', imageUrl: imgUpData.url },
+    });
+    check('posts: a photo post is created', post2.status === 201 && post2.data.post.imageUrl === imgUpData.url);
+
+    const feed = await req('GET', '/api/posts/feed', { token: C.token });
+    const feedIds = (feed.data.posts || []).map((p) => p._id);
+    check('posts: the feed shows every user the posts, newest first',
+      feed.status === 200 && feedIds[0] === post2.data.post._id && feedIds[1] === post1.data.post._id);
+
+    const pLike1 = await req('POST', `/api/posts/${post1.data.post._id}/like`, { token: C.token });
+    check('posts: like toggles on',
+      pLike1.status === 200 && pLike1.data.likedByMe === true && pLike1.data.likesCount === 1);
+    const pLike2 = await req('POST', `/api/posts/${post1.data.post._id}/like`, { token: C.token });
+    check('posts: like toggles back off',
+      pLike2.status === 200 && pLike2.data.likedByMe === false && pLike2.data.likesCount === 0);
+
+    const pComment = await req('POST', `/api/posts/${post1.data.post._id}/comments`, {
+      token: B.token,
+      body: { text: 'Bohat khoob!' },
+    });
+    check('posts: a comment is added and counted',
+      pComment.status === 201 && pComment.data.commentsCount === 1 &&
+        pComment.data.comment.text === 'Bohat khoob!');
+
+    const pDelForbidden = await req('DELETE', `/api/posts/${post1.data.post._id}`, { token: B.token });
+    check('posts: a non-author cannot delete a post (403)', pDelForbidden.status === 403);
+    const pDelOwn = await req('DELETE', `/api/posts/${post1.data.post._id}`, { token: A.token });
+    check('posts: the author can delete their own post', pDelOwn.status === 200);
+
     // --- Spam rate limits on a dedicated low-limit server -----------------------
     // The main suite needs generous limits, so the spam checks run against a
     // second instance booted with SPAM_* env knobs turned right down.
