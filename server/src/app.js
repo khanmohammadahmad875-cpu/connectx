@@ -58,6 +58,7 @@ app.use('/api/messages', require('./routes/messages'));
 app.use('/api/uploads', require('./routes/uploads'));
 app.use('/api/status', require('./routes/status'));
 app.use('/api/reels', require('./routes/reels'));
+app.use('/api/posts', require('./routes/posts'));
 app.use('/api/weather', require('./routes/weather'));
 app.use('/api/prayer-times', require('./routes/prayerTimes'));
 app.use('/api/notifications', require('./routes/notifications'));
