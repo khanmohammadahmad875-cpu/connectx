@@ -85,6 +85,7 @@ export default function Home() {
   function handleDockNav(key) {
     if (key === 'home') return;
     if (key === 'reels') return navigate('/reels');
+    if (key === 'posts') return navigate('/posts');
     if (key === 'status') return openStatus();
     if (key === 'communities' || key === 'calls') {
       sessionStorage.setItem('connectx_listview', key);

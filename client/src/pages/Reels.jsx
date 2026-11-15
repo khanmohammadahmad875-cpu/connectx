@@ -20,6 +20,7 @@ export default function Reels() {
   function handleDockNav(key) {
     if (key === 'reels') return;
     if (key === 'home') return navigate('/home');
+    if (key === 'posts') return navigate('/posts');
     if (key === 'status') {
       sessionStorage.setItem('connectx_section', 'status');
     } else if (key === 'communities' || key === 'calls') {

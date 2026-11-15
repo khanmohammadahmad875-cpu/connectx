@@ -734,6 +734,8 @@ export default function Chat() {
       navigate('/home');
     } else if (key === 'reels') {
       navigate('/reels');
+    } else if (key === 'posts') {
+      navigate('/posts');
     } else if (key === 'status') {
       setSection('status');
       loadStatusBadge();
