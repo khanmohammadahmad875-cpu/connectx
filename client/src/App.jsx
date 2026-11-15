@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PreferencesProvider } from './context/PreferencesContext';
@@ -42,9 +42,53 @@ function GuestRoute({ children }) {
   return children;
 }
 
+// Stale-bundle self-heal: some phones (above all the APK's WebView, kept
+// alive in the background) hold on to an old page across deploys, so a
+// fix that is already live still shows the old behaviour there — a status
+// tab that will not open, an old notifications panel. On focus (and every
+// few minutes) this re-fetches index.html — served no-cache — and compares
+// its main bundle name with the one this page booted from; if the deploy
+// has moved on, the page reloads once onto the new build. The
+// sessionStorage guard makes a reload loop impossible.
+function FreshnessGuard() {
+  useEffect(() => {
+    let checking = false;
+    async function checkFresh() {
+      if (checking || document.hidden) return;
+      checking = true;
+      try {
+        const res = await fetch(`/?_fresh=${Date.now()}`, { cache: 'no-store' });
+        const html = await res.text();
+        const match = html.match(/assets\/index-[A-Za-z0-9_-]+\.js/);
+        const booted = document
+          .querySelector('script[src*="assets/index-"]')
+          ?.getAttribute('src');
+        if (match && booted && !booted.includes(match[0])) {
+          if (sessionStorage.getItem('connectx_reloaded_for') !== match[0]) {
+            sessionStorage.setItem('connectx_reloaded_for', match[0]);
+            window.location.reload();
+          }
+        }
+      } catch (err) {
+        /* offline or mid-deploy — try again on the next focus */
+      } finally {
+        checking = false;
+      }
+    }
+    window.addEventListener('focus', checkFresh);
+    const timer = setInterval(checkFresh, 5 * 60 * 1000);
+    return () => {
+      window.removeEventListener('focus', checkFresh);
+      clearInterval(timer);
+    };
+  }, []);
+  return null;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
+      <FreshnessGuard />
       <AuthProvider>
         <PreferencesProvider>
           <Suspense fallback={<LoadingScreen />}>
