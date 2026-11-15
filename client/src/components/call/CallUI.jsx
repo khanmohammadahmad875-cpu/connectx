@@ -94,12 +94,18 @@ export default function CallUI() {
           <h3>{peer.username || 'Someone'}</h3>
           <p className="call-sub">{isVideo ? '📹 Incoming video call…' : '📞 Incoming voice call…'}</p>
           <div className="call-actions">
-            <button className="call-btn reject" onClick={rejectCall} title="Decline">
-              ✕
-            </button>
-            <button className="call-btn accept" onClick={acceptCall} title="Accept">
-              {isVideo ? '📹' : '📞'}
-            </button>
+            <div className="call-end-wrap">
+              <button className="call-btn endcall" onClick={rejectCall} title="Decline" aria-label="Decline call">
+                <span className="endcall-icon" aria-hidden="true">📞</span>
+              </button>
+              <span className="call-end-label">Decline</span>
+            </div>
+            <div className="call-end-wrap">
+              <button className="call-btn accept" onClick={acceptCall} title="Accept" aria-label="Accept call">
+                {isVideo ? '📹' : '📞'}
+              </button>
+              <span className="call-end-label">Accept</span>
+            </div>
           </div>
         </div>
       </div>
@@ -137,9 +143,12 @@ export default function CallUI() {
                 ⚡<span className="flash-state">{flashOn ? 'On' : 'Off'}</span>
               </button>
             )}
-            <button className="call-btn reject" onClick={endCall} title="Cancel call">
-              ✕
-            </button>
+            <div className="call-end-wrap">
+              <button className="call-btn endcall" onClick={endCall} title="Cancel call" aria-label="Cancel call">
+                <span className="endcall-icon" aria-hidden="true">📞</span>
+              </button>
+              <span className="call-end-label">Cancel</span>
+            </div>
           </div>
         </div>
       </div>
@@ -213,9 +222,12 @@ export default function CallUI() {
               🔊
             </button>
           )}
-          <button className="call-btn reject" onClick={endCall} title="End call">
-            ✕
-          </button>
+          <div className="call-end-wrap">
+            <button className="call-btn endcall" onClick={endCall} title="End call" aria-label="End call">
+              <span className="endcall-icon" aria-hidden="true">📞</span>
+            </button>
+            <span className="call-end-label">End</span>
+          </div>
         </div>
       </div>
     </div>
