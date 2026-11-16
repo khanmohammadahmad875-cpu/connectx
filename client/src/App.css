@@ -4245,26 +4245,36 @@ button.reel-sound-hint {
   .dock .nav3d-label { font-size: 10px; }
 
   /* --- Content zone: one consistent column, clear of the rail ---
-     margin-left keeps at least 118px on the left (rail ends at 106px)
-     and centres the column once the viewport is wide enough; the old
-     `margin: 0 auto` right side is replaced by a fixed 24px gutter
-     (with max-width capping the width, the leftover space balances
-     out, so wide screens still read as centred). Pages without a
-     dock (Settings, Weather, Admin…) share the same zone so the
-     content does not jump sideways when switching pages. */
+     ROUND-2 CORRECTION (user screenshots, 2026-11-16): the original
+     formulas used division inside calc() — calc((100vw - W) / 2) —
+     which the user's browser does not support, so the whole
+     margin-left declaration was dropped and the shells fell back to
+     the base `margin: 0 auto`; on his PC the centred Home column
+     started under the rail and the rail covered the cards' left edge.
+     The formulas below express the same centring with subtraction
+     only — (100vw - W) / 2 is exactly 50vw - (W / 2) — and each
+     max() line is preceded by a plain fixed-length fallback, so the
+     left offset can never fall below 124px (rail ends at 106px):
+     below the centring threshold the offset is a fixed 124px, above
+     it the column centres. Pages without a dock (Settings, Weather,
+     Admin…) share the same zone so content does not jump sideways
+     when switching pages. */
   .page-shell {
     max-width: 1080px;
-    margin-left: max(118px, calc((100vw - 1080px) / 2));
+    margin-left: 124px;
+    margin-left: max(124px, calc(50vw - 540px));
     margin-right: 24px;
     padding: 28px 32px 56px;
   }
   .page-shell.wide {
     max-width: 1280px;
-    margin-left: max(118px, calc((100vw - 1280px) / 2));
+    margin-left: 124px;
+    margin-left: max(124px, calc(50vw - 640px));
   }
   .dash-shell {
     max-width: 1400px;
-    margin-left: max(118px, calc((100vw - 1400px) / 2));
+    margin-left: 124px;
+    margin-left: max(124px, calc(50vw - 700px));
     margin-right: 24px;
     /* No bottom dock on PC, so the 116px bottom pad that cleared it
        on phones goes away. */
@@ -4272,7 +4282,8 @@ button.reel-sound-hint {
   }
   .dash-shell.narrow {
     max-width: 1080px;
-    margin-left: max(118px, calc((100vw - 1080px) / 2));
+    margin-left: 124px;
+    margin-left: max(124px, calc(50vw - 540px));
   }
   /* Home / Documents card grids: real desktop columns. Card stacks on
      the form pages (Settings sub-views, Weather, Business) stay one
@@ -4285,7 +4296,7 @@ button.reel-sound-hint {
 
   /* Reels: the same full-height feed, shifted right of the rail
      (the rail is fixed, so it floats over this empty strip). */
-  .reels-shell { padding-left: 118px; }
+  .reels-shell { padding-left: 124px; }
 
   /* Chat: already a true desktop grid (sidebar + window [+ info
      panel]) — only take the full dynamic viewport height. Modals and
@@ -4301,20 +4312,113 @@ button.reel-sound-hint {
 }
 
 @media (min-width: 1600px) {
+  /* Same subtraction-only centring as the 1024px block (round-2
+     correction — no division inside calc(), plain fallback first). */
   .page-shell {
     max-width: 1160px;
-    margin-left: max(118px, calc((100vw - 1160px) / 2));
+    margin-left: 124px;
+    margin-left: max(124px, calc(50vw - 580px));
   }
   .page-shell.wide {
     max-width: 1360px;
-    margin-left: max(118px, calc((100vw - 1360px) / 2));
+    margin-left: 124px;
+    margin-left: max(124px, calc(50vw - 680px));
   }
   .dash-shell {
     max-width: 1520px;
-    margin-left: max(118px, calc((100vw - 1520px) / 2));
+    margin-left: 124px;
+    margin-left: max(124px, calc(50vw - 760px));
   }
   .dash-shell.narrow {
     max-width: 1080px;
-    margin-left: max(118px, calc((100vw - 1080px) / 2));
+    margin-left: 124px;
+    margin-left: max(124px, calc(50vw - 540px));
   }
+}
+
+/* =====================================================================
+   DESKTOP ROUND 2 — ONE NAVIGATION SYSTEM (2026-11-16, user
+   screenshots of round 1 on his PC: "har kisi tab ka dosra tab sa
+   mukhtalip andaz" — every tab looked different). Round 1 turned the
+   bottom dock into a left rail on Home/Posts/Reels but left the Chat
+   page on its old wide in-sidebar .side-nav rows, let the rail sit
+   over the Home cards (broken margin formulas — fixed in the round-1
+   section above), and kept duplicate top-right .dash-nav pills.
+   This section unifies everything at desktop widths. Same liquid-
+   glass 3D design, same colours/fonts/wallpaper — layout only, and
+   everything inside min-width queries so ≤1023px is untouched.
+   ===================================================================== */
+@media (min-width: 1024px) {
+  /* --- The one rail: identical on EVERY page ----------------------
+     Home/Posts/Reels render <Dock> (.dock); the Chat page renders a
+     second <Dock> as a direct child of .chat-shell, which the base
+     rule `.chat-shell .dock { display: none }` hides on desktop.
+     Show it and give both the exact same geometry: same 92px width
+     (round-1 rule), same left:14px, same vertical centre, and now
+     the same fixed height with the button group centred inside, so
+     the rail cannot start higher/lower or change size between tabs.
+     (The wide in-sidebar .side-nav is hidden below — the rail
+     carries the same eight destinations, so nothing is lost.) */
+  .dock,
+  .chat-shell .dock {
+    animation-name: cx-rail-unified;
+    height: min(560px, calc(100dvh - 32px));
+    justify-content: center;
+  }
+  .chat-shell .dock { display: flex; }
+  @keyframes cx-rail-unified {
+    from { transform: translateY(-50%) translateX(-10px); opacity: 0; }
+    to { transform: translateY(-50%) translateX(0); opacity: 1; }
+  }
+
+  /* --- Chats: old wide sidebar nav rows off (rail replaces them) -- */
+  .side-nav { display: none; }
+
+  /* --- Chats: the whole shell clears the rail ----------------------
+     Rail occupies x = 14..106. A fixed 124px left margin on the
+     shell (a plain length — no calc, no max, nothing that can be
+     dropped as invalid) puts the chat sidebar's left edge at 124px
+     at every desktop width: an 18px gutter from the rail, always. */
+  .chat-shell { margin-left: 124px; }
+
+  /* --- Duplicate navigation off ------------------------------------
+     Home/Posts/Calendar/Documents/Security headers carry top-right
+     pill links (.dash-nav) that duplicate the rail. On PC the rail
+     is the navigation, so the pills go (desktop only). */
+  .dash-nav { display: none; }
+
+  /* --- Chats sidebar: new-chat FAB back where it was designed -----
+     Base .chat-fab is position:absolute (right:16, bottom:70,
+     anchored to .sidebar), but `.sidebar > *:not(.weather-scene)`
+     sets position:relative with higher specificity, which turned
+     the FAB into an in-flow item shifted left:16/up:70 by those
+     same offsets — the green circle half off the sidebar's left
+     edge, over the list/search area (user screenshot 2). Restore
+     absolute positioning with higher-specificity desktop rules:
+     bottom-right of the sidebar, above the footer, as designed. */
+  .chat-shell .sidebar .chat-fab {
+    position: absolute;
+    left: auto;
+    top: auto;
+    right: 16px;
+    bottom: 70px;
+    z-index: 6;
+  }
+
+  /* --- Chats sidebar: footer cannot overflow or split words -------
+     Avatar + name + admin tag + Admin/Profile/Log out links are
+     wider than the 340px sidebar in one row, which squeezed the
+     links and split "Log out" across two lines. Let the footer wrap
+     as whole groups instead: the chip shrinks with an ellipsis name,
+     the links stay on one line (nowrap) and wrap as a group to a
+     second row when they cannot fit beside the chip. */
+  .sidebar-footer { flex-wrap: wrap; row-gap: 4px; }
+  .sidebar-footer .me-chip { flex: 1 1 auto; min-width: 0; }
+  .sidebar-footer .footer-links {
+    flex-wrap: nowrap;
+    gap: 10px;
+    margin-left: auto;
+  }
+  .sidebar-footer .footer-links a,
+  .sidebar-footer .footer-links .link-btn { white-space: nowrap; }
 }
