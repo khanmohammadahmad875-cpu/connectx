@@ -103,8 +103,7 @@ export default function ConversationList({
       </div>
       {mode === 'archived' && <p className="list-view-title">🗄 Archived chats</p>}
       {mode === 'main' && (
-        <>
-          <div className="filter-chips" role="tablist" aria-label="Filter chats">
+        <div className="filter-chips" role="tablist" aria-label="Filter chats">
             {FILTERS.map((f) => (
               <button
                 key={f.key}
@@ -117,7 +116,10 @@ export default function ConversationList({
                 {f.label}
               </button>
             ))}
-          </div>
+        </div>
+      )}
+      <div className="conv-list" onClick={() => menuFor && setMenuFor(null)}>
+        {mode === 'main' && (
           <div className="conv-entries">
             <button className="conv-entry archived-entry" onClick={onOpenArchived}>
               <span className="conv-entry-icon">🗄</span>
@@ -146,9 +148,7 @@ export default function ConversationList({
               <span className="conv-entry-label">Businesses</span>
             </button>
           </div>
-        </>
-      )}
-      <div className="conv-list" onClick={() => menuFor && setMenuFor(null)}>
+        )}
         {loading && conversations.length === 0 && (
           <div aria-busy="true">
             {[0, 1, 2, 3].map((i) => (
