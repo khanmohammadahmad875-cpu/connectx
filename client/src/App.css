@@ -4422,3 +4422,109 @@ button.reel-sound-hint {
   .sidebar-footer .footer-links a,
   .sidebar-footer .footer-links .link-btn { white-space: nowrap; }
 }
+
+/* =====================================================================
+   DESKTOP ROUND 3 — CHATS SIDEBAR FIT (2026-11-16, user screenshot
+   161324 of the round-2 build on his PC: "chats dekho yarr, saare
+   chats show hona chahiye, aur opar jo MA logo hai profile ka os ko
+   dekho"). Three layout repairs, desktop only, same liquid-glass
+   design — no colour, font or wallpaper changes. Marker: cx-chat-fit.
+
+   (1) HEIGHT CHAIN. The sidebar could grow past the viewport: the
+   six shortcut rows (.conv-entries, ~290px) sat OUTSIDE the
+   scrollable .conv-list as a non-shrinkable flex item (min-height:
+   auto) inside .conv-list-wrap, and the grid row of .chat-shell was
+   unconstrained, so on a short PC window the fixed chrome (header +
+   search + chips + entries + the taller round-2 wrapped footer)
+   squeezed the conversation list to a sliver with its own scrollbar
+   and pushed the footer below the fold. The entries now live INSIDE
+   .conv-list (ConversationList.jsx) so there is exactly one scroll
+   region, and below the whole chain is made explicit: the grid row
+   is capped at the container height, header/search/chips/footer are
+   flex:none (always fully visible), the wrap and the list flex with
+   min-height:0. Fit is then arithmetic, not luck: fixed chrome =
+   header 65 + search ~58 + chips ~41 + footer ~73 = ~237px, so the
+   list region is viewport − 237 at ANY height (396px at 633px,
+   563px at 800px) and the footer can never leave the screen.
+
+   (2) HEADER AVATAR. .brand had no min-width:0 and .brand-sub is
+   nowrap, so brand (~224px) + actions (~130px) exceeded the 308px
+   header content box and the last action — the profile avatar —
+   was pushed past the sidebar's right edge. The brand now shrinks
+   with an ellipsis (name/sub), the actions are flex:none.
+
+   (3) RAIL HARDENING. The round-2 rail rested on one equal-
+   specificity override of the base `.chat-shell .dock{display:
+   none}`. Below, the rail's display and FULL geometry are restated
+   under a strictly higher-specificity selector (.dock.dock,
+   (0,3,0)) and the shell margin under a doubled class ((0,2,0)),
+   so the base rule cannot win under any ordering or minifier
+   regrouping: the rail + 124px clearance are self-sufficient in
+   this block alone.
+   ===================================================================== */
+@media (min-width: 1024px) {
+  /* --- (1) height chain: sidebar is exactly the viewport height -- */
+  .chat-shell {
+    grid-template-rows: minmax(0, 1fr);
+    animation-name: cx-chat-fit;
+  }
+  @keyframes cx-chat-fit {
+    from { opacity: 1; }
+    to { opacity: 1; }
+  }
+  .sidebar { min-height: 0; }
+  .sidebar-header,
+  .sidebar-footer { flex: none; }
+  .conv-list-wrap { flex: 1 1 auto; min-height: 0; }
+  .conv-search-row,
+  .filter-chips { flex: none; }
+  .conv-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+
+  /* Shortcut rows inside the scroll region: same glass cards, just
+     tighter, so more real conversations share the first screen
+     (row ≈ 38px instead of ≈48–52px; six rows ≈ 228px not ~300px). */
+  .sidebar .conv-entry { margin: 3px 10px; padding: 6px 12px; }
+
+  /* --- (2) header: brand shrinks, actions (avatar) stay inside --- */
+  .sidebar-header { gap: 8px; }
+  .sidebar-header .brand { flex: 1 1 auto; min-width: 0; }
+  .sidebar-header .brand-mark { flex: none; }
+  .sidebar-header .brand-text { min-width: 0; overflow: hidden; }
+  .sidebar-header .brand-name,
+  .sidebar-header .brand-sub {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sidebar-actions { flex: none; }
+  .sidebar-actions .icon-btn { flex: none; }
+
+  /* --- (3) rail + shell clearance, higher-specificity restatement */
+  .chat-shell .dock.dock {
+    display: flex;
+    position: fixed;
+    left: 14px;
+    right: auto;
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+    flex-direction: column;
+    align-items: stretch;
+    width: 92px;
+    max-width: none;
+    height: min(560px, calc(100dvh - 32px));
+    justify-content: center;
+    gap: 4px;
+    padding: 10px 8px;
+    border-radius: 26px;
+    overflow-y: auto;
+    z-index: 900;
+  }
+  .chat-shell.chat-shell { margin-left: 124px; }
+
+  /* --- FAB: the round-2 wrapped footer is ~73px tall (two rows),
+     not the ~51px single row bottom:70px was designed against.
+     88px restores a clear gap above the footer while the button
+     keeps floating over the list's bottom-right corner as before. */
+  .chat-shell .sidebar .chat-fab { bottom: 88px; }
+}
