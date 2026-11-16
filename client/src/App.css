@@ -4197,3 +4197,124 @@ button.reel-sound-hint {
   font: inherit;
   font-size: 11.5px;
 }
+
+/* =====================================================================
+   DESKTOP / PC LAYOUT (2026-11-16 — user: "jistarah app mein hai isi
+   tarah web par bhi banana, aur PC par bhi fix karna": mobile par
+   mobile size/layout, PC par PC ki tarah).
+   This is the SAME app with the SAME liquid-glass 3D design — same
+   colours, gradients, fonts and live-weather wallpaper. Nothing is
+   redesigned; only layout, sizing and navigation placement adapt at
+   desktop widths. Everything lives inside min-width queries appended
+   at the end of the file, so phone/tablet layouts (every max-width
+   rule above) are completely untouched.
+   ===================================================================== */
+@media (min-width: 1024px) {
+  /* --- Navigation: the floating bottom dock becomes a left rail ---
+     Same glass pill, stood upright: fixed at the left edge, vertically
+     centred, buttons stacked with icon over label (the .side-nav in
+     the chat sidebar keeps its own row layout — different class).
+     .chat-shell .dock stays display:none at this width (base rule),
+     so the chat page's in-sidebar navigation is unaffected. */
+  .dock {
+    left: 14px;
+    right: auto;
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+    flex-direction: column;
+    align-items: stretch;
+    width: 92px;
+    max-width: none;
+    max-height: calc(100vh - 28px);
+    overflow-y: auto;
+    gap: 4px;
+    padding: 10px 8px;
+    border-radius: 26px;
+    animation-name: cx-dock-in-pc;
+  }
+  /* The base cx-dock-in keyframes hard-code translateX(-50%) for the
+     bottom bar; the rail needs its own entrance on the Y axis. */
+  @keyframes cx-dock-in-pc {
+    from { transform: translateY(-50%) translateX(-10px); opacity: 0; }
+    to { transform: translateY(-50%) translateX(0); opacity: 1; }
+  }
+  .dock .nav3d-btn { padding: 9px 6px; border-radius: 18px; }
+  .dock .nav3d-btn.active { transform: translateX(3px); }
+  .dock .nav3d-icon svg { width: 22px; height: 22px; }
+  .dock .nav3d-label { font-size: 10px; }
+
+  /* --- Content zone: one consistent column, clear of the rail ---
+     margin-left keeps at least 118px on the left (rail ends at 106px)
+     and centres the column once the viewport is wide enough; the old
+     `margin: 0 auto` right side is replaced by a fixed 24px gutter
+     (with max-width capping the width, the leftover space balances
+     out, so wide screens still read as centred). Pages without a
+     dock (Settings, Weather, Admin…) share the same zone so the
+     content does not jump sideways when switching pages. */
+  .page-shell {
+    max-width: 1080px;
+    margin-left: max(118px, calc((100vw - 1080px) / 2));
+    margin-right: 24px;
+    padding: 28px 32px 56px;
+  }
+  .page-shell.wide {
+    max-width: 1280px;
+    margin-left: max(118px, calc((100vw - 1280px) / 2));
+  }
+  .dash-shell {
+    max-width: 1400px;
+    margin-left: max(118px, calc((100vw - 1400px) / 2));
+    margin-right: 24px;
+    /* No bottom dock on PC, so the 116px bottom pad that cleared it
+       on phones goes away. */
+    padding: 28px 32px 48px;
+  }
+  .dash-shell.narrow {
+    max-width: 1080px;
+    margin-left: max(118px, calc((100vw - 1080px) / 2));
+  }
+  /* Home / Documents card grids: real desktop columns. Card stacks on
+     the form pages (Settings sub-views, Weather, Business) stay one
+     column — wider, but never split, so no form can break. */
+  .dash-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+
+  /* Posts: the same feed cards in a wider reading column, and no
+     bottom-dock clearance pad. */
+  .posts-wrap { max-width: 740px; padding-bottom: 40px; }
+
+  /* Reels: the same full-height feed, shifted right of the rail
+     (the rail is fixed, so it floats over this empty strip). */
+  .reels-shell { padding-left: 118px; }
+
+  /* Chat: already a true desktop grid (sidebar + window [+ info
+     panel]) — only take the full dynamic viewport height. Modals and
+     the auth card stay centred exactly as they are. */
+  .chat-shell { height: 100vh; height: 100dvh; }
+}
+
+@media (min-width: 1440px) {
+  .dash-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  /* A little more room for the conversation list + info panel. */
+  .chat-shell { grid-template-columns: 380px 1fr; }
+  .chat-shell:has(.info-panel) { grid-template-columns: 380px 1fr 340px; }
+}
+
+@media (min-width: 1600px) {
+  .page-shell {
+    max-width: 1160px;
+    margin-left: max(118px, calc((100vw - 1160px) / 2));
+  }
+  .page-shell.wide {
+    max-width: 1360px;
+    margin-left: max(118px, calc((100vw - 1360px) / 2));
+  }
+  .dash-shell {
+    max-width: 1520px;
+    margin-left: max(118px, calc((100vw - 1520px) / 2));
+  }
+  .dash-shell.narrow {
+    max-width: 1080px;
+    margin-left: max(118px, calc((100vw - 1080px) / 2));
+  }
+}
